@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' https://api.github.com; base-uri 'none'; form-action 'none'">
+<title>Clip & Croc · Pilotage</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+
+<main id="porte" class="porte" hidden>
+  <h1>Clip &amp; Croc</h1>
+  <p class="muted">Poste de pilotage</p>
+
+  <form id="form-ouvrir" hidden>
+    <label for="mdp-ouvrir">Mot de passe</label>
+    <input id="mdp-ouvrir" type="password" autocomplete="current-password" required>
+    <button class="btn primaire" type="submit">Ouvrir</button>
+    <p class="erreur" id="erreur-ouvrir" hidden></p>
+    <button class="lien" type="button" id="oublier">Oublier cet appareil et recommencer</button>
+  </form>
+
+  <form id="form-installer" hidden>
+    <p>Première ouverture sur cet appareil. Le jeton d'accès est chiffré avec votre mot de passe et reste dans ce navigateur : il n'est envoyé nulle part ailleurs que chez GitHub.</p>
+    <label for="depot">Dépôt GitHub (nom-du-compte/nom-du-dépôt)</label>
+    <input id="depot" type="text" autocomplete="off" spellcheck="false" placeholder="compte/clipandcroc-os" required>
+    <label for="jeton">Jeton d'accès GitHub</label>
+    <input id="jeton" type="password" autocomplete="off" spellcheck="false" required>
+    <label for="mdp-nouveau">Choisissez un mot de passe (12 caractères au moins)</label>
+    <input id="mdp-nouveau" type="password" autocomplete="new-password" minlength="12" required>
+    <label for="mdp-confirme">Répétez le mot de passe</label>
+    <input id="mdp-confirme" type="password" autocomplete="new-password" minlength="12" required>
+    <button class="btn primaire" type="submit">Enregistrer et ouvrir</button>
+    <p class="erreur" id="erreur-installer" hidden></p>
+  </form>
+</main>
+
+<div id="appli" hidden>
+  <header class="haut">
+    <div>
+      <p class="etiquette">Poste de pilotage</p>
+      <h1>Clip &amp; Croc</h1>
+    </div>
+    <div class="haut-droite">
+      <span class="pastille" id="etat-quota"></span>
+      <button class="btn" id="actualiser">Actualiser</button>
+      <button class="btn" id="verrouiller">Verrouiller</button>
+    </div>
+  </header>
+  <nav class="onglets" id="onglets" role="tablist">
+    <button data-vue="accueil">Accueil</button>
+    <button data-vue="prospection">Prospection</button>
+    <button data-vue="equipe">Équipe</button>
+    <button data-vue="commandes">Commandes et devis</button>
+    <button data-vue="compta">Comptabilité</button>
+    <button data-vue="modeles">Modèles et quotas</button>
+    <button data-vue="cles">Clés</button>
+  </nav>
+  <div id="bandeau" class="bandeau" hidden></div>
+  <section id="vue" class="vue"></section>
+  <footer class="pied" id="pied"></footer>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
