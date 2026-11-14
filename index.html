@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <meta name="referrer" content="no-referrer">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' https://api.github.com; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; media-src blob:; connect-src 'self' https://api.github.com; base-uri 'none'; form-action 'none'">
 <title>Clip & Croc · Pilotage</title>
 <link rel="stylesheet" href="app.css">
 </head>
@@ -26,9 +26,10 @@
   <form id="form-installer" hidden>
     <p>Première ouverture sur cet appareil. Le jeton d'accès est chiffré avec votre mot de passe et reste dans ce navigateur : il n'est envoyé nulle part ailleurs que chez GitHub.</p>
     <label for="depot">Dépôt GitHub (nom-du-compte/nom-du-dépôt)</label>
-    <input id="depot" type="text" autocomplete="off" spellcheck="false" placeholder="compte/clipandcroc-os" required>
+    <input id="depot" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="compte/clipandcroc-os" required>
     <label for="jeton">Jeton d'accès GitHub</label>
-    <input id="jeton" type="password" autocomplete="off" spellcheck="false" required>
+    <input id="jeton" type="password" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" required>
+    <button class="lien" type="button" id="voir-jeton">Afficher le jeton</button>
     <label for="mdp-nouveau">Choisissez un mot de passe (12 caractères au moins)</label>
     <input id="mdp-nouveau" type="password" autocomplete="new-password" minlength="12" required>
     <label for="mdp-confirme">Répétez le mot de passe</label>

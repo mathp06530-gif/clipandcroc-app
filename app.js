@@ -39,6 +39,20 @@ const entetes = () => LOCAL ? { 'Content-Type': 'application/json' }
 const texteDe = contenu => new TextDecoder().decode(b64.de(contenu.replace(/\s/g, '')));
 const versB64 = texte => { const o = new TextEncoder().encode(texte); let s = ''; o.forEach(x => s += String.fromCharCode(x)); return btoa(s); };
 
+/* Diagnostic du jeton à l'installation : dit précisément ce qui ne va pas. */
+async function diagnostiquer() {
+  const appel = async chemin => { try { return await fetch('https://api.github.com' + chemin, { headers: entetes(), cache: 'no-store' }); } catch { throw new Error('Pas de réponse de GitHub : vérifiez la connexion internet de cet appareil.'); } };
+  const u = await appel('/user');
+  if (u.status === 401) throw new Error('1/3 Le jeton n\'est pas reconnu par GitHub (code 401) : il est mal copié, supprimé, régénéré ou expiré. Créez-en un nouveau et collez-le en entier.');
+  const r = await appel('/repos/' + S.depot);
+  if (r.status === 404) throw new Error('2/3 Ce jeton ne donne pas accès au dépôt « ' + S.depot + ' » (code 404). Soit le nom du dépôt est mal écrit (attendu : mathp06530-gif/clipandcroc-os), soit le jeton n\'a pas été limité à ce dépôt : sur GitHub, « Repository access » doit contenir clipandcroc-os.');
+  if (!r.ok) throw new Error('2/3 GitHub répond avec le code ' + r.status + ' pour ce dépôt.');
+  const f = await appel('/repos/' + S.depot + '/contents/etat/tableau.json?ref=main');
+  if (f.status === 403) throw new Error('3/3 Le jeton voit le dépôt mais n\'a pas le droit « Contents » (en français « Sommaire » ou « Code ») : ouvrez le jeton sur GitHub, ajoutez « Contents » en « Lecture et écriture ».');
+  if (f.status === 404) throw new Error('3/3 Le dépôt est accessible, mais etat/tableau.json est introuvable : le droit « Contents » est probablement absent du jeton.');
+  if (!f.ok) throw new Error('3/3 Lecture impossible (code ' + f.status + ').');
+}
+
 async function lire(chemin) {
   const r = await fetch(adresse(chemin) + (LOCAL ? '' : '?ref=main'), { headers: entetes(), cache: 'no-store' });
   if (r.status === 404) return null;
@@ -69,6 +83,23 @@ async function deposer(demande, patience) {
     }
     throw new Error('Pas de réponse après 5 minutes. Regardez l\'onglet Actions du dépôt GitHub.');
   } finally { S.occupe = false; }
+}
+
+/* Visionneuse : la vidéo ou l'image est lue dans le dépôt privé avec le jeton, puis jouée depuis la mémoire du navigateur. */
+const TYPES_MEDIA = { mp4: 'video/mp4', mov: 'video/quicktime', webm: 'video/webm', jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp' };
+function fermerMedia() { if (S.media) URL.revokeObjectURL(S.media.url); S.media = null; }
+async function voirMedia(d) {
+  if (!/^medias\/[A-Za-z0-9_.\/-]+$/.test(d.chemin) || d.chemin.includes('..')) throw new Error('Chemin de média refusé.');
+  bandeau('Chargement du fichier…');
+  const r = await fetch(adresse(d.chemin) + (LOCAL ? '' : '?ref=main'), { headers: { ...entetes(), 'Accept': 'application/vnd.github.raw+json' }, cache: 'no-store' });
+  if (!r.ok) throw new Error(`Fichier introuvable dans le dépôt (code ${r.status}). Lancez « python -m moteur.projets synchroniser » sur le PC puis envoyez les fichiers.`);
+  const type = TYPES_MEDIA[d.chemin.split('.').pop().toLowerCase()] || 'application/octet-stream';
+  const blob = new Blob([await r.arrayBuffer()], { type });
+  fermerMedia();
+  S.media = { titre: d.titre, type: d.type === 'video' ? 'video' : 'image', url: URL.createObjectURL(blob) };
+  bandeau('');
+  afficher();
+  const v = $('vue').querySelector('.visionneuse'); if (v) v.scrollIntoView({ block: 'start' });
 }
 
 async function charger() {
@@ -259,6 +290,7 @@ const VUES = {
           <span>Kie <b>${nf(k.depense)} / ${nf(k.devis)}</b> cr.</span>
           <span>Validée par vous <b class="${p.validee_par_mathis === 'oui' ? 'vert' : ''}">${p.validee_par_mathis === 'oui' ? 'oui' : 'non'}</b></span>
           <span>Envoyée <b>${h(p.envoye_le || 'non')}</b></span></div>
+        ${(p.medias || []).length ? `<div class="medias"><span class="etiquette">Voir</span>${p.medias.map(m => `<button class="btn ${m.type === 'video' ? 'primaire' : ''}" data-a="voir-media" data-chemin="${h(m.chemin)}" data-titre="${h(p.titre + ' : ' + m.titre)}" data-type="${h(m.type)}">${m.type === 'video' ? '&#9654; ' : ''}${h(m.titre)}</button>`).join('')}</div>` : ''}
         <p class="mono chemin">${h(p.dossier)}<br>${h(p.brief)}${p.livrable ? '<br>' + h(p.livrable) : ''}</p>
         ${p.notes ? `<p class="muted">${h(p.notes)}</p>` : ''}
         ${al.map(x => `<p class="erreur">${h(x.texte)}</p>`).join('')}</article>`;
@@ -273,7 +305,10 @@ const VUES = {
         + groupe('Portfolio', vus.filter(p => p.categorie === 'portfolio')) + groupe('Vitrine du compte', vus.filter(p => p.categorie === 'vitrine'));
     } else corps = vus.length ? `<div class="grille">${vus.map(carte).join('')}</div>` : vide('Aucun projet dans cette catégorie.');
     const bouton = (f, nom, n) => `<button class="btn ${F === f ? 'primaire' : ''}" data-a="filtre-projets" data-f="${f}">${nom} (${n})</button>`;
+    const visionneuse = S.media ? `<div class="carte visionneuse"><div class="rang espace"><h3>${h(S.media.titre)}</h3><button class="btn" data-a="fermer-media">Fermer</button></div>
+        ${S.media.type === 'video' ? `<video controls playsinline autoplay src="${h(S.media.url)}"></video>` : `<img alt="${h(S.media.titre)}" src="${h(S.media.url)}">`}</div>` : '';
     return `
+      ${visionneuse}
       <div class="chiffres">
         ${[['Projets actifs', actifs.length], ['Clients', actifs.filter(p => p.categorie === 'client').length], ['Portfolio', actifs.filter(p => p.categorie === 'portfolio').length],
            ['Vitrine', actifs.filter(p => p.categorie === 'vitrine').length], ['Alertes', R.alertes.length]].map(c => `<div class="chiffre"><span class="etiquette">${c[0]}</span><b>${c[1]}</b></div>`).join('')}
@@ -376,6 +411,8 @@ $('vue').addEventListener('click', e => {
   if (a === 'aller') { S.vue = b.dataset.vue; location.hash = S.vue; return afficher(); }
   if (a === 'ouvrir-agent') { S.agent = agent; afficher(); return $('panneau-agent').scrollIntoView({ behavior: 'smooth' }); }
   if (a === 'fermer-agent') { S.agent = null; return afficher(); }
+  if (a === 'voir-media') return faire(() => voirMedia(b.dataset));
+  if (a === 'fermer-media') { fermerMedia(); return afficher(); }
   if (a === 'filtre-projets') { S.filtre = b.dataset.f; return afficher(); }
   if (a === 'verrouiller') return verrouiller();
   if (a === 'oublier') return oublier();
@@ -444,16 +481,19 @@ $('form-ouvrir').addEventListener('submit', async e => {
   entrer();
 });
 $('oublier').addEventListener('click', oublier);
+$('voir-jeton').addEventListener('click', () => { const j = $('jeton'); j.type = j.type === 'password' ? 'text' : 'password'; $('voir-jeton').textContent = j.type === 'password' ? 'Afficher le jeton' : 'Masquer le jeton'; });
 $('form-installer').addEventListener('submit', async e => {
   e.preventDefault(); dire('erreur-installer', '');
   const depot = $('depot').value.trim(), jeton = $('jeton').value.trim(), mdp = $('mdp-nouveau').value;
   if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(depot)) return dire('erreur-installer', 'Le dépôt s\'écrit compte/nom-du-dépôt.');
   if (mdp.length < 12) return dire('erreur-installer', 'Le mot de passe doit faire 12 caractères au moins.');
   if (mdp !== $('mdp-confirme').value) return dire('erreur-installer', 'Les deux mots de passe sont différents.');
-  S.depot = depot; S.jeton = jeton;
-  try { if (!(await lire('etat/tableau.json'))) throw new Error('Le dépôt répond, mais etat/tableau.json est introuvable.'); }
+  const jetonNet = jeton.replace(/[\s​-‍﻿]/g, '');
+  if (!/^[A-Za-z0-9_]{20,}$/.test(jetonNet)) return dire('erreur-installer', 'Le jeton est vide ou contient des caractères étrangers (espace, retour à la ligne, guillemets). Recopiez-le en entier, sans rien autour. Il commence par github_pat_.');
+  S.depot = depot; S.jeton = jetonNet;
+  try { await diagnostiquer(); }
   catch (err) { S.jeton = null; return dire('erreur-installer', err.message); }
-  await fermerCoffre(mdp, depot, jeton);
+  await fermerCoffre(mdp, depot, jetonNet);
   entrer();
 });
 

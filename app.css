@@ -125,3 +125,9 @@ td.n { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .faits b.vert { color: var(--ok); }
 .chemin { font-size: .74rem; color: var(--gris); border-left: 2px solid var(--trait); padding-left: 8px; overflow-wrap: anywhere; }
 @media (max-width: 520px) { .etapes { grid-template-columns: repeat(4, 1fr); } h1 { font-size: 1.3rem; } }
+
+/* Visionneuse et liste des médias d'un projet */
+.medias { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.visionneuse { border-color: var(--accent); align-items: center; }
+.visionneuse > .rang { width: 100%; }
+.visionneuse video, .visionneuse img { max-width: 100%; max-height: 72vh; background: #000; border: 1px solid var(--trait); }
