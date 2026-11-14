@@ -364,6 +364,10 @@ const VUES = {
           <tr><td class="n">Jeton GitHub</td><td>L'accès de cette page au dépôt</td><td>Ce navigateur, chiffré par votre mot de passe</td><td><span class="pastille ok">${LOCAL ? 'inutile en local' : 'en service'}</span></td></tr>
         </tbody></table></div>
         <p class="muted">Aucune clé n'est affichée ni stockée dans cette page. ${secrets ? `Pour ajouter ou changer une clé : <a href="${h(secrets)}" target="_blank" rel="noopener noreferrer">secrets du dépôt</a>.` : ''}</p></div>
+      ${LOCAL ? '' : `<div class="carte"><h3>Connecter une tablette ou un téléphone</h3>
+        <p class="muted">Crée un lien qui contient votre accès, chiffré par votre mot de passe. Ouvrez-le sur l'autre appareil (copié, envoyé à vous-même ou passé par le câble USB dans un fichier) : il ne restera qu'à taper le mot de passe. Ne le partagez avec personne.</p>
+        <div class="rang"><button class="btn primaire" data-a="lien-appareil">Créer le lien</button>${S.lien ? '<button class="btn" data-a="copier-lien">Copier le lien</button><button class="btn" data-a="fichier-lien">Enregistrer dans un fichier</button>' : ''}</div>
+        ${S.lien ? `<textarea readonly rows="4" class="mono">${h(S.lien)}</textarea>` : ''}</div>`}
       ${LOCAL ? '' : `<div class="carte"><h3>Cet appareil</h3>
         <div class="rang"><button class="btn" data-a="verrouiller">Verrouiller maintenant</button><button class="btn" data-a="oublier">Oublier cet appareil</button></div>
         <p class="muted">La page se verrouille seule après 20 minutes sans activité. « Oublier cet appareil » efface le jeton chiffré de ce navigateur.</p></div>`}`;
@@ -414,6 +418,19 @@ $('vue').addEventListener('click', e => {
   if (a === 'fermer-agent') { S.agent = null; return afficher(); }
   if (a === 'voir-media') return faire(() => voirMedia(b.dataset));
   if (a === 'fermer-media') { fermerMedia(); return afficher(); }
+  if (a === 'lien-appareil') {
+    const c = localStorage.getItem(COFFRE);
+    if (!c) return bandeau('Aucun accès enregistré sur cet appareil.', 'erreur');
+    S.lien = location.origin + location.pathname + '#coffre=' + btoa(c).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    return afficher();
+  }
+  if (a === 'copier-lien') return faire(async () => { await navigator.clipboard.writeText(S.lien); bandeau('Lien copié. Ouvrez-le sur la tablette.', 'ok'); });
+  if (a === 'fichier-lien') {
+    const url = URL.createObjectURL(new Blob(['Ouvrez ce lien sur la tablette, puis tapez votre mot de passe :\n\n' + S.lien + '\n'], { type: 'text/plain' }));
+    const lienFichier = document.createElement('a'); lienFichier.href = url; lienFichier.download = 'connexion-clipandcroc.txt';
+    document.body.appendChild(lienFichier); lienFichier.click(); lienFichier.remove(); setTimeout(() => URL.revokeObjectURL(url), 2000);
+    return;
+  }
   if (a === 'filtre-projets') { S.filtre = b.dataset.f; return afficher(); }
   if (a === 'verrouiller') return verrouiller();
   if (a === 'oublier') return oublier();
@@ -468,10 +485,25 @@ async function entrer() {
   await faire(charger);
 }
 
+/* Lien d'appareil : le coffre chiffré (dépôt + jeton chiffré par le mot de passe) voyage dans la partie « # » de l'adresse,
+   qui n'est jamais envoyée au serveur. Sur la tablette, il ne reste qu'à taper le mot de passe. */
+function importerLienAppareil() {
+  if (!location.hash.startsWith('#coffre=')) return false;
+  let ok = false;
+  try {
+    const brut = atob(location.hash.slice(8).replace(/-/g, '+').replace(/_/g, '/'));
+    const c = JSON.parse(brut);
+    if (c && c.depot && c.sel && c.iv && c.donnees) { localStorage.setItem(COFFRE, JSON.stringify(c)); ok = true; }
+  } catch { ok = false; }
+  history.replaceState(null, '', location.pathname);
+  return ok;
+}
+
 function porte() {
   if (LOCAL) return entrer();
   const existe = !!localStorage.getItem(COFFRE);
   $('porte').hidden = false; $('form-ouvrir').hidden = !existe; $('form-installer').hidden = existe;
+  if (S.nouvelAppareil) { $('info-ouvrir').textContent = 'Appareil ajouté. Tapez votre mot de passe habituel pour ouvrir la page.'; $('info-ouvrir').hidden = false; }
   ['mdp-ouvrir', 'jeton', 'mdp-nouveau', 'mdp-confirme'].forEach(i => { $(i).value = ''; });
 }
 const dire = (id, texte) => { $(id).textContent = texte; $(id).hidden = !texte; };
@@ -498,4 +530,5 @@ $('form-installer').addEventListener('submit', async e => {
   entrer();
 });
 
+S.nouvelAppareil = importerLienAppareil();
 porte();
