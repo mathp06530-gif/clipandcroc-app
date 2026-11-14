@@ -359,6 +359,7 @@ const VUES = {
       <div class="bloc"><h2>Clés utilisées par l'équipe</h2>
         <div class="defile"><table><thead><tr><th>Clé</th><th>Sert à</th><th>Où elle est rangée</th><th>Vue par les automates</th></tr></thead><tbody>
           <tr><td class="n">OPENROUTER_API_KEY</td><td>Les modèles gratuits des agents</td><td>Secrets du dépôt GitHub</td><td><span class="pastille ${T.cles.OPENROUTER_API_KEY ? 'ok' : 'danger'}">${T.cles.OPENROUTER_API_KEY ? 'oui' : 'non'}</span></td></tr>
+          <tr><td class="n">GROQ_API_KEY</td><td>Les modèles gratuits de secours (environ 900 requêtes de plus par jour)</td><td>Secrets du dépôt GitHub et fichier .env du PC</td><td><span class="pastille ${T.cles.GROQ_API_KEY ? 'ok' : 'attente'}">${T.cles.GROQ_API_KEY ? 'oui' : 'pas encore'}</span></td></tr>
           <tr><td class="n">KIE_API_KEY</td><td>La génération d'images et de clips</td><td>Fichier .env du PC pour l'instant</td><td><span class="pastille">${T.cles.KIE_API_KEY ? 'oui' : 'pas encore'}</span></td></tr>
           <tr><td class="n">Jeton GitHub</td><td>L'accès de cette page au dépôt</td><td>Ce navigateur, chiffré par votre mot de passe</td><td><span class="pastille ok">${LOCAL ? 'inutile en local' : 'en service'}</span></td></tr>
         </tbody></table></div>
