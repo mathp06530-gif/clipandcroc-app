@@ -240,6 +240,54 @@ const VUES = {
       </div>`;
   },
 
+  projets() {
+    const R = S.T.projets || { projets: [], etapes: [], alertes: [] }, F = S.filtre || 'tous';
+    const NOM = { brief: 'Brief', images: 'Images', clips: 'Clips', montage: 'Montage', controle: 'Contrôle', valide: 'Validée', livre: 'Livrée' };
+    const CAT = { client: 'Client', portfolio: 'Portfolio', vitrine: 'Vitrine' };
+    const actifs = R.projets.filter(p => p.statut !== 'archivé'), archives = R.projets.filter(p => p.statut === 'archivé');
+    const garde = p => F === 'tous' ? p.statut !== 'archivé' : F === 'archives' ? p.statut === 'archivé' : p.categorie === F && p.statut !== 'archivé';
+    const carte = p => {
+      const i = R.etapes.indexOf(p.etape), c = p.constat || {}, k = p.kie || {};
+      const al = R.alertes.filter(x => x.projet === p.id);
+      return `<article class="carte projet ${al.length ? 'alerte' : ''}">
+        <div class="rang espace"><h3>${h(p.titre)}</h3><span class="pastille ${p.categorie === 'client' ? 'ok' : ''}">${h(CAT[p.categorie] || p.categorie)}</span></div>
+        <p class="muted">${p.categorie === 'client' ? 'Client : <b>' + h(p.client || 'à renseigner') + '</b>' : p.categorie === 'portfolio' ? 'Exemple fictif, jamais envoyé comme travail réel' : 'Compte @clipandcroc.fr'}</p>
+        <ol class="etapes">${R.etapes.map((e, n) => `<li class="${n < i ? 'fait' : n === i ? 'actuel' : ''}">${h(NOM[e] || e)}</li>`).join('')}</ol>
+        <div class="faits">
+          <span>Images <b>${nf(c.images)}</b></span><span>Clips <b>${nf(c.clips)}</b></span>
+          <span>Vidéo finale <b>${c.livrable_present ? 'oui' : 'non'}</b></span>
+          <span>Kie <b>${nf(k.depense)} / ${nf(k.devis)}</b> cr.</span>
+          <span>Validée par vous <b class="${p.validee_par_mathis === 'oui' ? 'vert' : ''}">${p.validee_par_mathis === 'oui' ? 'oui' : 'non'}</b></span>
+          <span>Envoyée <b>${h(p.envoye_le || 'non')}</b></span></div>
+        <p class="mono chemin">${h(p.dossier)}<br>${h(p.brief)}${p.livrable ? '<br>' + h(p.livrable) : ''}</p>
+        ${p.notes ? `<p class="muted">${h(p.notes)}</p>` : ''}
+        ${al.map(x => `<p class="erreur">${h(x.texte)}</p>`).join('')}</article>`;
+    };
+    const clients = [...new Set(actifs.filter(p => p.categorie === 'client').map(p => p.client || '—'))].sort();
+    const groupe = (titre, liste) => liste.length ? `<div class="bloc"><h2>${h(titre)} <span class="muted">(${liste.length})</span></h2><div class="grille">${liste.map(carte).join('')}</div></div>` : '';
+    const vus = R.projets.filter(garde);
+    let corps;
+    if (F === 'tous') {
+      corps = (clients.length ? clients.map(c => groupe('Client : ' + c, vus.filter(p => p.categorie === 'client' && (p.client || '—') === c))).join('')
+              : `<div class="vide">Aucun projet client pour l'instant. Chaque client aura son propre dossier <span class="mono">livrables/&lt;client&gt;/</span> : ses vidéos ne seront jamais mélangées avec celles d'un autre.</div>`)
+        + groupe('Portfolio', vus.filter(p => p.categorie === 'portfolio')) + groupe('Vitrine du compte', vus.filter(p => p.categorie === 'vitrine'));
+    } else corps = vus.length ? `<div class="grille">${vus.map(carte).join('')}</div>` : vide('Aucun projet dans cette catégorie.');
+    const bouton = (f, nom, n) => `<button class="btn ${F === f ? 'primaire' : ''}" data-a="filtre-projets" data-f="${f}">${nom} (${n})</button>`;
+    return `
+      <div class="chiffres">
+        ${[['Projets actifs', actifs.length], ['Clients', actifs.filter(p => p.categorie === 'client').length], ['Portfolio', actifs.filter(p => p.categorie === 'portfolio').length],
+           ['Vitrine', actifs.filter(p => p.categorie === 'vitrine').length], ['Alertes', R.alertes.length]].map(c => `<div class="chiffre"><span class="etiquette">${c[0]}</span><b>${c[1]}</b></div>`).join('')}
+      </div>
+      ${R.alertes.length ? `<div class="bloc"><h2>Alertes</h2><div class="carte alerte">${R.alertes.map(x => `<p class="erreur">${h(x.texte)}</p>`).join('')}</div></div>` : ''}
+      <div class="rang">${bouton('tous', 'Tous', actifs.length)}${bouton('client', 'Clients', actifs.filter(p => p.categorie === 'client').length)}${bouton('portfolio', 'Portfolio', actifs.filter(p => p.categorie === 'portfolio').length)}${bouton('vitrine', 'Vitrine', actifs.filter(p => p.categorie === 'vitrine').length)}${bouton('archives', 'Archivés', archives.length)}</div>
+      ${corps}
+      <div class="carte"><h3>Règles contre les erreurs</h3><ul class="liste">
+        <li>Un projet = un dossier, un brief, un client. Deux projets ne partagent jamais un dossier.</li>
+        <li>Une vidéo client ne passe en « Validée » qu'après votre accord, et en « Livrée » qu'avec la date d'envoi.</li>
+        <li>Le portfolio est fictif : il n'est jamais présenté comme le travail d'un vrai commerce.</li>
+        <li>Toute incohérence apparaît dans les alertes ci-dessus.</li></ul></div>`;
+  },
+
   compta() {
     const C = S.T.compta, somme = t => C.filter(x => x.type === t).reduce((s, x) => s + Number(x.montant_eur || 0), 0);
     return `
@@ -328,6 +376,7 @@ $('vue').addEventListener('click', e => {
   if (a === 'aller') { S.vue = b.dataset.vue; location.hash = S.vue; return afficher(); }
   if (a === 'ouvrir-agent') { S.agent = agent; afficher(); return $('panneau-agent').scrollIntoView({ behavior: 'smooth' }); }
   if (a === 'fermer-agent') { S.agent = null; return afficher(); }
+  if (a === 'filtre-projets') { S.filtre = b.dataset.f; return afficher(); }
   if (a === 'verrouiller') return verrouiller();
   if (a === 'oublier') return oublier();
   if (a === 'copier-ouvrir') return faire(() => copierOuvrir(lien, b.dataset.zone));
