@@ -148,6 +148,11 @@ const VUES = {
       <div class="bloc"><h2>À faire par vous maintenant</h2>
         ${taches.length ? `<div class="carte"><ul class="liste">${taches.map(t => `<li><b>${t[0]}</b> ${t[1]} <button class="lien" data-a="aller" data-vue="${t[2]}">ouvrir</button></li>`).join('')}</ul></div>`
           : vide('Rien n\'attend votre décision. Ajoutez des prospects dans l\'onglet Prospection pour lancer la journée.')}</div>
+      ${propositions ? `<div class="bloc"><h2>Auto-amélioration : leçons à valider</h2>
+        <p class="muted">Chaque jour, les agents relisent leurs résultats et proposent des leçons. Rien n'est appliqué sans votre accord.</p>
+        ${T.equipe.agents.filter(a => a.propositions).map(a => `<div class="carte"><h3>${h(nomAgent(a.id))}</h3>
+          <p class="texte-message">${h(a.propositions)}</p>
+          <div class="rang"><button class="btn primaire" data-a="adopter" data-agent="${h(a.id)}">Accepter</button><button class="btn" data-a="refuser" data-agent="${h(a.id)}">Refuser</button></div></div>`).join('')}</div>` : ''}
       <div class="chiffres">
         ${[['Prospects', T.prospects.length], ['Envoyés aujourd\'hui', p.envoyes_aujourdhui.premiers + p.envoyes_aujourdhui.relances],
            ['En discussion', T.prospects.filter(x => x.statut === 'en discussion').length], ['Clients', T.prospects.filter(x => x.statut === 'client').length],
