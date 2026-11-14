@@ -45,7 +45,7 @@ async function diagnostiquer() {
   const u = await appel('/user');
   if (u.status === 401) throw new Error('1/3 Le jeton n\'est pas reconnu par GitHub (code 401) : il est mal copié, supprimé, régénéré ou expiré. Créez-en un nouveau et collez-le en entier.');
   const r = await appel('/repos/' + S.depot);
-  if (r.status === 404) throw new Error('2/3 Ce jeton ne donne pas accès au dépôt « ' + S.depot + ' » (code 404). Soit le nom du dépôt est mal écrit (attendu : mathp06530-gif/clipandcroc-os), soit le jeton n\'a pas été limité à ce dépôt : sur GitHub, « Repository access » doit contenir clipandcroc-os.');
+  if (r.status === 404) throw new Error('2/3 Ce jeton ne donne pas accès au dépôt « ' + S.depot + ' » (code 404). Soit le nom du dépôt est mal écrit (attendu : votre-compte/nom-du-dépôt-privé), soit le jeton n\'a pas été limité à ce dépôt : sur GitHub, « Repository access » doit contenir clipandcroc-os.');
   if (!r.ok) throw new Error('2/3 GitHub répond avec le code ' + r.status + ' pour ce dépôt.');
   const f = await appel('/repos/' + S.depot + '/contents/etat/tableau.json?ref=main');
   if (f.status === 403) throw new Error('3/3 Le jeton voit le dépôt mais n\'a pas le droit « Contents » (en français « Sommaire » ou « Code ») : ouvrez le jeton sur GitHub, ajoutez « Contents » en « Lecture et écriture ».');
