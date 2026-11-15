@@ -207,7 +207,7 @@ const VUES = {
 
   productions() {
     const P = S.T.productions || [];
-    const NOMS = { structure: 'Structure (Lina)', storyboard: 'Storyboard (Victor)', prompts: 'Prompts (Théo)', textes: 'Textes (Jade)',
+    const NOMS = { structure: 'Structure (Lina)', storyboard: 'Storyboard (Victor)', photographie: 'Photographie (Oscar)', prompts: 'Prompts (Théo)', textes: 'Textes (Jade)',
       devis_images: 'Devis images (Marius)', images: 'Images clés (Kie)', planche: 'Planche', validation: 'Votre validation' };
     const pastille = st => ({ 'fait': 'ok', 'en cours': 'attente', 'attend Mathis': 'attente', 'erreur': 'danger' }[st] || '');
     const medias = id => (((S.T.projets || {}).projets || []).find(x => x.id === id) || {}).medias || [];
