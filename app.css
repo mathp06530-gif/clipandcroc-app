@@ -1,4 +1,4 @@
-/* Clip & Croc : poste de pilotage. Jaune et noir, esprit terminal. Aucune ressource externe (politique de sécurité stricte). */
+/* Lueur Studio : poste de pilotage. Jaune et noir, esprit terminal. Aucune ressource externe (politique de sécurité stricte). */
 :root {
   --fond: #090909; --surface: #121212; --surface2: #1a1a14; --encre: #efeadb; --gris: #8d8872; --trait: #2d2b1e;
   --accent: #ffd400; --sur-accent: #090909; --accent-doux: rgba(255, 212, 0, .12);

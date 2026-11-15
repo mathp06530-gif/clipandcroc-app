@@ -1,5 +1,5 @@
 'use strict';
-/* Page de pilotage Clip & Croc.
+/* Page de pilotage Lueur Studio.
    - Elle lit un seul fichier du dépôt : etat/tableau.json.
    - Elle n'écrit qu'à un seul endroit : boite/demandes/<id>.json. L'automate GitHub fait le reste.
    - Elle n'envoie jamais de message : elle copie le texte et ouvre le profil, Mathis envoie.
@@ -290,7 +290,7 @@ const VUES = {
       const al = R.alertes.filter(x => x.projet === p.id);
       return `<article class="carte projet ${al.length ? 'alerte' : ''}">
         <div class="rang espace"><h3>${h(p.titre)}</h3><span class="pastille ${p.categorie === 'client' ? 'ok' : ''}">${h(CAT[p.categorie] || p.categorie)}</span></div>
-        <p class="muted">${p.categorie === 'client' ? 'Client : <b>' + h(p.client || 'à renseigner') + '</b>' : p.categorie === 'portfolio' ? 'Exemple fictif, jamais envoyé comme travail réel' : 'Compte @clipandcroc.fr'}</p>
+        <p class="muted">${p.categorie === 'client' ? 'Client : <b>' + h(p.client || 'à renseigner') + '</b>' : p.categorie === 'portfolio' ? 'Exemple fictif, jamais envoyé comme travail réel' : 'Compte @lueur.studio'}</p>
         <ol class="etapes">${R.etapes.map((e, n) => `<li class="${n < i ? 'fait' : n === i ? 'actuel' : ''}">${h(NOM[e] || e)}</li>`).join('')}</ol>
         <div class="faits">
           <span>Images <b>${nf(c.images)}</b></span><span>Clips <b>${nf(c.clips)}</b></span>
@@ -435,7 +435,7 @@ $('vue').addEventListener('click', e => {
   if (a === 'copier-lien') return faire(async () => { await navigator.clipboard.writeText(S.lien); bandeau('Lien copié. Ouvrez-le sur la tablette.', 'ok'); });
   if (a === 'fichier-lien') {
     const url = URL.createObjectURL(new Blob(['Ouvrez ce lien sur la tablette, puis tapez votre mot de passe :\n\n' + S.lien + '\n'], { type: 'text/plain' }));
-    const lienFichier = document.createElement('a'); lienFichier.href = url; lienFichier.download = 'connexion-clipandcroc.txt';
+    const lienFichier = document.createElement('a'); lienFichier.href = url; lienFichier.download = 'connexion-lueur-studio.txt';
     document.body.appendChild(lienFichier); lienFichier.click(); lienFichier.remove(); setTimeout(() => URL.revokeObjectURL(url), 2000);
     return;
   }
