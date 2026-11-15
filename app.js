@@ -204,10 +204,15 @@ const VUES = {
   },
 
   prospection() {
+    const C = S.T.courriel || {};
+    const etatGmail = `<div class="carte"><div class="rang espace"><h3>Boîte mail (Gmail, lecture seule)</h3><span class="pastille ${C.configure ? 'ok' : 'attente'}">${C.configure ? 'branchée' : 'pas encore branchée'}</span></div>
+      <p class="muted">${C.configure ? `Max lit les nouveaux e-mails à chaque passage. Dernière lecture : ${C.derniere_lecture ? h(C.derniere_lecture.replace('T', ' à ')) : 'pas encore'}${C.dernier_bilan ? ` · ${C.dernier_bilan.prospects.length} réponse(s) de prospect, ${C.dernier_bilan.autres} autre(s) e-mail(s) ignoré(s)` : ''}.` : 'Une fois branchée, les réponses des prospects arrivées par e-mail sont lues toutes seules et Léa prépare la réponse. Rien n\'est jamais envoyé, supprimé ni marqué comme lu.'}</p>
+      ${C.configure ? '<div class="rang"><button class="btn" data-a="lire-courriels">Lire la boîte mail maintenant</button></div>' : ''}</div>`;
     const T = S.T, p = T.plan, lim = T.limites;
     const attente = Math.max(0, p.attente_avant_prochain_envoi_s - Math.round((Date.now() - S.chargeLe) / 1000));
     const enCours = T.prospects.filter(x => ['envoyé', 'en discussion'].includes(x.statut));
     return `
+      ${etatGmail}
       <div class="chiffres">
         <div class="chiffre"><span class="etiquette">Premiers messages</span><b>${p.envoyes_aujourdhui.premiers} / ${p.quota_premiers_du_jour}</b></div>
         <div class="chiffre"><span class="etiquette">Relances du jour</span><b>${p.envoyes_aujourdhui.relances}</b></div>
@@ -244,6 +249,7 @@ const VUES = {
             ${f.brouillon ? `<p class="etiquette">Réponse préparée par Léa · ${h(f.brouillon.intention)} · suite : ${h(String(f.brouillon.prochaine_etape).replace(/_/g, ' '))}</p>
               <textarea id="brouillon-${i}">${h(f.brouillon.texte)}</textarea>
               <button class="lien" data-a="garder" data-quoi="brouillon" data-lien="${h(lien)}" data-zone="brouillon-${i}">Enregistrer ma version</button>
+              ${f.courriel ? `<p class="muted">Elle a répondu par e-mail (${h(f.courriel.adresse)}). <a href="https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(f.courriel.adresse)}&su=${encodeURIComponent('Re: ' + (f.courriel.sujet || ''))}&body=${encodeURIComponent(f.brouillon.texte)}" target="_blank" rel="noopener noreferrer">Répondre dans Gmail</a> (le brouillon est prérempli : relisez, puis envoyez vous-même).</p>` : ''}
               ${boutonsEnvoi(lien, `brouillon-${i}`, 'reponse-envoyee', 'Réponse envoyée')}`
               : `<label for="recu-${i}">Il a répondu ? Collez son message ici</label><textarea id="recu-${i}"></textarea>
                  <button class="btn" data-a="repondre" data-lien="${h(lien)}" data-zone="recu-${i}">Faire préparer la réponse par Léa</button>`}
@@ -530,6 +536,7 @@ $('vue').addEventListener('click', e => {
   }
   if (a === 'refuser-devis') return faire(() => deposer({ action: 'refuser_devis', brief: b.dataset.brief }));
   if (a === 'point-equipe') return faire(async () => { await deposer({ action: 'point_equipe' }, "Max fait le point avec l'équipe… En ligne, comptez une minute."); bandeau("Point d'équipe publié dans le fil.", 'ok'); afficher(); });
+  if (a === 'lire-courriels') return faire(async () => { const r = await deposer({ action: 'lire_courriels' }, 'Lecture de la boîte mail…'); bandeau(`${r.lus} nouvel(s) e-mail(s) lu(s), ${r.prospects.length} réponse(s) de prospect.`, 'ok'); afficher(); });
   if (a === 'proposer') return faire(() => deposer({ action: 'proposer_lecons', agent }, 'L\'agent relit ses résultats…'));
   if (a === 'adopter') return faire(async () => { const r = await deposer({ action: 'adopter_lecons', agent }, 'Enregistrement des leçons… En ligne, comptez 30 à 60 secondes.'); bandeau(`${r.adoptees || 0} leçon(s) de ${nomAgent(agent)} adoptée(s) : elles s'appliquent dès sa prochaine tâche.`, 'ok'); afficher(); });
   if (a === 'refuser') return faire(async () => { await deposer({ action: 'refuser_lecons', agent }, 'Refus des leçons… En ligne, comptez 30 à 60 secondes.'); bandeau(`Leçons de ${nomAgent(agent)} refusées.`, 'ok'); afficher(); });
