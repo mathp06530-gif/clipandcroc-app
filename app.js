@@ -116,6 +116,10 @@ function bandeau(texte, genre) {
   b.hidden = !texte; b.textContent = texte || ''; b.className = 'bandeau' + (genre ? ' ' + genre : '');
 }
 const barre = (valeur, max) => `<div class="barre"><i data-largeur="${Math.min(100, max ? valeur / max * 100 : 0)}"></i></div>`;
+const estLibre = a => ['libre', 'groq', 'openrouter'].includes(a.execution);
+const ilya = iso => { if (!iso) return 'jamais'; const s = (Date.now() - new Date(iso).getTime()) / 1000;
+  return s < 90 ? "à l'instant" : s < 3600 ? `il y a ${Math.round(s / 60)} min` : s < 86400 ? `il y a ${Math.round(s / 3600)} h` : `il y a ${Math.round(s / 86400)} j`; };
+const duree = s => s < 60 ? `${s} s` : s < 3600 ? `${Math.round(s / 60)} min` : `${(s / 3600).toFixed(1).replace('.', ',')} h`;
 const avatar = a => `<div class="avatar" data-couleur="${h(a.couleur)}" aria-hidden="true">${h(a.prenom[0])}</div>`;
 const prospect = lien => S.T.prospects.find(p => p.lien_du_compte === lien) || {};
 const fiche = lien => S.T.fiches[lien] || { conversation: [], relances: [] };
@@ -268,11 +272,12 @@ const VUES = {
       <div class="rang"><span class="pastille">${['libre', 'groq', 'openrouter'].includes(a.execution) ? ({ groq: 'Groq', nvidia: 'NVIDIA', gemini: 'Gemini' }[String(a.modeles[0]).split(':')[0]] || 'gratuit') + ' · ' + h(court(String(a.modeles[0]).replace(/^(groq|nvidia|gemini):/, ''))) : 'dans Claude Code'}</span>
         ${a.resultats.reussi ? `<span class="pastille ok">${a.resultats.reussi} réussi(s)</span>` : ''}${a.resultats.corrige ? `<span class="pastille attente">${a.resultats.corrige} corrigé(s)</span>` : ''}
         ${a.resultats.rate ? `<span class="pastille danger">${a.resultats.rate} raté(s)</span>` : ''}${a.propositions ? '<span class="pastille attente">leçons à valider</span>' : ''}</div>
-      <button class="btn" data-a="ouvrir-agent" data-agent="${h(a.id)}">${a.execution === 'openrouter' ? 'Lui parler' : 'Voir sa fiche'}</button></article>`;
+      <p class="muted">${(T.activite || {})[a.id] ? `Actif ${ilya(T.activite[a.id].derniere)} · ${T.activite[a.id].taches} tâche(s)` : 'Pas encore de travail enregistré'}</p>
+      <button class="btn" data-a="ouvrir-agent" data-agent="${h(a.id)}">${estLibre(a) ? 'Lui parler' : 'Voir sa fiche'}</button></article>`;
     const panneau = a => { const fil = S.fils[a.id] || []; return `
       <div class="carte" id="panneau-agent"><div class="rang espace"><div class="agent-tete">${avatar(a)}<div><h2>${h(a.prenom)}</h2><p class="muted">${h(a.metier)} · pôle ${h(a.pole)}</p></div></div>
           <button class="btn discret" data-a="fermer-agent">Fermer</button></div>
-        ${a.execution === 'openrouter' ? `
+        ${estLibre(a) ? `
           <div class="fil" id="fil">${fil.length ? fil.map(m => `<div class="bulle ${m.de === 'mathis' ? 'moi' : ''}">${h(m.texte)}</div>`).join('') : `<p class="muted">Posez une question à ${h(a.prenom)} sur son travail. Chaque message consomme une requête gratuite.</p>`}</div>
           <form id="form-parler" class="rang"><input id="dire" aria-label="Votre message" maxlength="1500" required><button class="btn primaire" type="submit">Envoyer</button></form>`
           : `<p class="muted">${h(a.prenom)} travaille dans Claude Code, avec votre abonnement. Pour lui parler, ouvrez Claude Code dans le dossier du projet.</p>`}
@@ -280,12 +285,26 @@ const VUES = {
           <div class="bloc"><h3>Leçons retenues</h3>${a.lecons.length ? `<ul class="liste">${a.lecons.map(l => `<li>${h(l)}</li>`).join('')}</ul>` : '<p class="muted">Aucune pour l\'instant.</p>'}
             ${a.propositions ? `<h3>Leçons proposées, à valider</h3><p class="texte-message">${h(a.propositions)}</p>
               <div class="rang"><button class="btn primaire" data-a="adopter" data-agent="${h(a.id)}">Adopter</button><button class="btn" data-a="refuser" data-agent="${h(a.id)}">Refuser</button></div>`
-              : (a.execution === 'openrouter' ? `<button class="btn" data-a="proposer" data-agent="${h(a.id)}">Lui demander de proposer des leçons</button>` : '')}</div>
+              : (estLibre(a) ? `<button class="btn" data-a="proposer" data-agent="${h(a.id)}">Lui demander de proposer des leçons</button>` : '')}</div>
           <div class="bloc"><h3>Derniers résultats</h3>${a.derniers_resultats.length ? `<ul class="liste">${a.derniers_resultats.slice().reverse().map(r => `<li><span class="pastille ${r.resultat === 'reussi' ? 'ok' : r.resultat === 'rate' ? 'danger' : 'attente'}">${h(r.resultat)}</span> ${h(r.detail)}</li>`).join('')}</ul>` : '<p class="muted">Aucun résultat noté.</p>'}
             <form id="form-noter" class="bloc"><label for="note-detail">Noter son travail</label><input id="note-detail" maxlength="400" placeholder="Ce qui était bien, ou ce qu'il faut corriger" required>
               <div class="rang"><button class="btn" name="r" value="reussi">Réussi</button><button class="btn" name="r" value="corrige">À corriger</button><button class="btn" name="r" value="rate">Raté</button></div></form></div>
         </div></div>`; };
-    return `${ouvert ? panneau(ouvert) : ''}
+    const R = T.reunion || [];
+    const act = T.activite || {};
+    const lignesAct = T.equipe.agents.map(a => [a, act[a.id]]).sort((x, y) => String((y[1] || {}).derniere || '').localeCompare(String((x[1] || {}).derniere || '')));
+    const haut = `
+      <div class="bloc"><div class="rang espace"><h2>Réunion d'équipe</h2><button class="btn" data-a="ouvrir-agent" data-agent="claude">Parler seul à Max</button></div>
+        <p class="muted">Écrivez à toute l'équipe : Max, le chef de projet, répond et donne la parole aux agents concernés (3 au plus). En ligne, comptez une minute.</p>
+        <div class="carte"><div class="fil" id="fil">${R.length ? R.map(m => `<div class="bulle ${m.de === 'mathis' ? 'moi' : ''}"><b>${h(m.nom)}</b>\n${h(m.texte)}</div>`).join('') : '<p class="muted">Aucun message pour l\'instant. Exemple : « Qu\'est-ce qui bloque pour la vidéo de demain ? »</p>'}</div>
+          <form id="form-reunion" class="rang"><input id="dire-equipe" aria-label="Message à toute l'équipe" maxlength="1500" required placeholder="Votre message à toute l'équipe"><button class="btn primaire" type="submit">Envoyer</button></form></div></div>
+      <div class="bloc"><h2>Activité de l'équipe</h2>
+        <div class="defile"><table><thead><tr><th>Agent</th><th>Dernière activité</th><th>En service depuis</th><th>Tâches</th><th>Discussions</th><th>Échecs</th><th>Temps de calcul</th><th>Modèle</th></tr></thead><tbody>
+          ${lignesAct.map(([a, s]) => `<tr><td>${h(a.prenom)}</td><td class="n">${s ? ilya(s.derniere) : 'jamais'}</td><td class="n">${s ? h(s.depuis.slice(8, 10) + '/' + s.depuis.slice(5, 7)) : '–'}</td>
+            <td class="n">${s ? s.taches : 0}</td><td class="n">${s ? s.discussions : 0}</td><td class="n">${s && s.echecs ? `<span class="pastille danger">${s.echecs}</span>` : 0}</td>
+            <td class="n">${s ? duree(s.secondes) : '–'}</td><td class="n">${s && s.modele ? h(court(String(s.modele).replace(/^(groq|nvidia|gemini):/, ''))) : '–'}</td></tr>`).join('')}</tbody></table></div>
+        <p class="muted">Les agents ne tournent pas en continu : chacun se lance quand une tâche l'attend (Max toutes les 2 heures de 7 h à 21 h, la préparation du jour chaque matin, vos clics sur la page).</p></div>`;
+    return `${ouvert ? panneau(ouvert) : haut}
       ${Object.keys(T.equipe.poles).map(pole => { const liste = T.equipe.agents.filter(a => a.pole === pole); return liste.length ? `
         <div class="bloc"><div class="pole-titre"><span class="etiquette">Pôle ${h(pole)}</span></div><div class="grille">${liste.map(carte).join('')}</div></div>` : ''; }).join('')}`;
   },
@@ -510,6 +529,12 @@ $('vue').addEventListener('submit', e => {
     fil.push({ de: 'mathis', texte }); afficher();
     try { const r = await deposer({ action: 'discuter', agent: id, echanges: fil }, `${nomAgent(id)} réfléchit…`); fil.push({ de: 'agent', texte: r.texte }); }
     catch (err) { fil.pop(); throw err; }
+    afficher();
+  });
+  if (e.target.id === 'form-reunion') return faire(async () => {
+    const texte = zone('dire-equipe');
+    S.T.reunion = (S.T.reunion || []).concat([{ de: 'mathis', nom: 'Mathis', texte }]); afficher();
+    await deposer({ action: 'reunion', message: texte }, 'Max lit votre message et donne la parole aux agents concernés… En ligne, comptez une minute.');
     afficher();
   });
   if (e.target.id === 'form-noter') return faire(async () => {
