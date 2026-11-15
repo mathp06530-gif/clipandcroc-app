@@ -152,6 +152,10 @@ const VUES = {
     return `
       <div class="bloc"><div class="rang espace"><h2>Objectif : ${nf(T.objectif.encaisse_eur)} € sur ${T.objectif.cible_eur} €</h2><span class="pastille">J-${jours}</span></div>
         ${barre(T.objectif.encaisse_eur, T.objectif.cible_eur)}</div>
+      <div class="bloc"><h2>Demander à Claude</h2>
+        <div class="carte"><p class="muted">Claude tourne sur les serveurs de GitHub avec votre abonnement, même PC éteint : toutes les 4 heures, et dès que vous lui écrivez ici (réponse en quelques minutes). Il fait avancer la production, relit les prompts, prépare les devis ; il ne dépense rien sans votre accord et n'envoie rien.</p>
+          <form id="form-claude" class="rang"><input id="dire-claude" maxlength="2000" required placeholder="Par exemple : relis les prompts de clip et prépare le devis"><button class="btn primaire" type="submit">Envoyer à Claude</button></form>
+          ${(T.claude_demandes || []).slice().reverse().map(d => `<div class="carte"><p><b>Vous :</b> ${h(d.message || '')}</p>${d.reponse ? `<p class="texte-message">${h(d.reponse.texte || '')}</p>` : '<p class="muted">Claude va s\'en occuper (quelques minutes). Actualisez la page.</p>'}</div>`).join('')}</div></div>
       <div class="bloc"><h2>À faire par vous maintenant</h2>
         ${taches.length ? `<div class="carte"><ul class="liste">${taches.map(t => `<li><b>${t[0]}</b> ${t[1]} <button class="lien" data-a="aller" data-vue="${t[2]}">ouvrir</button></li>`).join('')}</ul></div>`
           : vide('Rien n\'attend votre décision. Ajoutez des prospects dans l\'onglet Prospection pour lancer la journée.')}</div>
@@ -590,6 +594,15 @@ $('vue').addEventListener('submit', e => {
   if (e.target.id === 'form-production') return faire(async () => {
     const r = await deposer({ action: 'creer_production', titre: zone('prod-titre'), demande: zone('prod-demande') }, "Lina, Victor, Théo et Jade travaillent sur votre vidéo… Comptez 3 à 6 minutes.");
     bandeau(`Production lancée : étapes faites ${(r.faites || []).join(', ') || 'aucune'}${r.attente ? ' · en attente : ' + r.attente : ''}`, 'ok'); afficher();
+  });
+  if (e.target.id === 'form-claude') return faire(async () => {
+    const message = zone('dire-claude');
+    const id = Array.from(crypto.getRandomValues(new Uint8Array(9)), x => 'abcdefghijklmnopqrstuvwxyz0123456789'[x % 36]).join('');
+    const r = await fetch(adresse(`boite/claude/${id}.json`), { method: 'PUT', headers: entetes(),
+      body: JSON.stringify({ message: 'Demande à Claude', content: versB64(JSON.stringify({ message, date: new Date().toISOString() })), branch: 'main' }) });
+    if (!r.ok) throw new Error(`Envoi impossible (code ${r.status}).`);
+    S.T.claude_demandes = (S.T.claude_demandes || []).concat([{ id, message, reponse: null }]);
+    bandeau('Message envoyé à Claude. Il se lance sur GitHub et répond ici dans quelques minutes.', 'ok'); afficher();
   });
   if (e.target.id === 'form-reunion') return faire(async () => {
     const texte = zone('dire-equipe');
