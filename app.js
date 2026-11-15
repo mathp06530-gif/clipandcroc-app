@@ -70,7 +70,7 @@ async function deposer(demande, patience) {
     const r = await fetch(adresse(`boite/demandes/${id}.json`), { method: 'PUT', headers: entetes(),
       body: JSON.stringify({ message: `Demande : ${demande.action}`, content: versB64(JSON.stringify(demande)), branch: 'main' }) });
     if (!r.ok) throw new Error(r.status === 403 || r.status === 401 ? 'GitHub refuse l\'écriture : vérifiez les droits du jeton.' : `Dépôt de la demande impossible (code ${r.status}).`);
-    const tours = ['creer_production', 'avancer_production', 'valider_storyboard', 'accepter_devis', 'reunion'].includes(demande.action) ? 160 : 75;
+    const tours = ['creer_production', 'avancer_production', 'valider_storyboard', 'valider_video', 'accepter_devis', 'reunion'].includes(demande.action) ? 160 : 75;
     for (let essai = 0; essai < tours; essai++) {
       await new Promise(f => setTimeout(f, LOCAL ? 300 : 4000));
       const brut = await lire(`boite/reponses/${id}.json`);
@@ -152,10 +152,8 @@ const VUES = {
     return `
       <div class="bloc"><div class="rang espace"><h2>Objectif : ${nf(T.objectif.encaisse_eur)} € sur ${T.objectif.cible_eur} €</h2><span class="pastille">J-${jours}</span></div>
         ${barre(T.objectif.encaisse_eur, T.objectif.cible_eur)}</div>
-      <div class="bloc"><h2>Demander à Claude</h2>
-        <div class="carte"><p class="muted">Claude tourne sur les serveurs de GitHub avec votre abonnement, même PC éteint : toutes les 4 heures, et dès que vous lui écrivez ici (réponse en quelques minutes). Il fait avancer la production, relit les prompts, prépare les devis ; il ne dépense rien sans votre accord et n'envoie rien.</p>
-          <form id="form-claude" class="rang"><input id="dire-claude" maxlength="2000" required placeholder="Par exemple : relis les prompts de clip et prépare le devis"><button class="btn primaire" type="submit">Envoyer à Claude</button></form>
-          ${(T.claude_demandes || []).slice().reverse().map(d => `<div class="carte"><p><b>Vous :</b> ${h(d.message || '')}</p>${d.reponse ? `<p class="texte-message">${h(d.reponse.texte || '')}</p>` : '<p class="muted">Claude va s\'en occuper (quelques minutes). Actualisez la page.</p>'}</div>`).join('')}</div></div>
+      <div class="carte"><div class="rang espace"><h3>Claude (copie gratuite)</h3><button class="btn primaire" data-a="parler-claude">Lui parler</button></div>
+        <p class="muted">La copie de mon rôle, sur GitHub, H24, avec des modèles gratuits (NVIDIA, Groq) : aucun abonnement utilisé. Elle relit les prompts de clip avant chaque dépense, fait avancer la production avec l'équipe et vous répond ici. Elle ne dépense rien sans votre accord et n'envoie rien.</p></div>
       <div class="bloc"><h2>À faire par vous maintenant</h2>
         ${taches.length ? `<div class="carte"><ul class="liste">${taches.map(t => `<li><b>${t[0]}</b> ${t[1]} <button class="lien" data-a="aller" data-vue="${t[2]}">ouvrir</button></li>`).join('')}</ul></div>`
           : vide('Rien n\'attend votre décision. Ajoutez des prospects dans l\'onglet Prospection pour lancer la journée.')}</div>
@@ -212,12 +210,14 @@ const VUES = {
   productions() {
     const P = S.T.productions || [];
     const NOMS = { structure: 'Structure (Lina)', storyboard: 'Storyboard (Victor)', photographie: 'Photographie (Oscar)', prompts: 'Prompts (Théo)', textes: 'Textes (Jade)',
-      devis_images: 'Devis images (Marius)', images: 'Images clés (Kie)', planche: 'Planche', validation: 'Votre validation' };
+      devis_images: 'Devis images (Marius)', images: 'Images clés (Kie)', planche: 'Planche', validation: 'Votre validation',
+      relecture: 'Relecture (Claude gratuit)', devis_clips: 'Devis clips (Marius)', clips: 'Clips (Kie)', montage: 'Montage (Élio)',
+      controle_final: 'Contrôle (Inès)', validation_finale: 'Votre validation finale' };
     const pastille = st => ({ 'fait': 'ok', 'en cours': 'attente', 'attend Mathis': 'attente', 'erreur': 'danger' }[st] || '');
     const medias = id => (((S.T.projets || {}).projets || []).find(x => x.id === id) || {}).medias || [];
     return `
       <div class="bloc"><h2>Productions</h2>
-        <p class="muted">Ici, les agents travaillent pour de vrai : chaque étape est exécutée par l'agent concerné, l'une après l'autre, jusqu'à ce qu'une décision vous attende (accord d'un devis, validation du storyboard). Max fait avancer les productions à chacun de ses passages ; vous pouvez aussi cliquer « Faire avancer ».</p></div>
+        <p class="muted">Ici, les agents travaillent pour de vrai : chaque étape est exécutée par l'agent concerné, l'une après l'autre, jusqu'à ce qu'une décision vous attende (accord d'un devis, validation du storyboard). Max fait avancer les productions à chacun de ses passages ; vous pouvez aussi cliquer « Faire avancer ». Tout tourne sur GitHub avec des modèles gratuits : la relecture des prompts, que Claude faisait, est faite par sa copie gratuite.</p></div>
       <div class="carte"><h3>Nouvelle vidéo</h3>
         <form id="form-production" class="bloc"><label>Titre<input id="prod-titre" maxlength="80" required placeholder="Bougie « Nuit de Cèdre » (vitrine)"></label>
           <label>Ce que vous voulez<textarea id="prod-demande" maxlength="1500" required placeholder="Reel héros de la vitrine : bougie fictive, ambiance clair-obscur, flamme et fumée fine…"></textarea></label>
@@ -227,8 +227,9 @@ const VUES = {
         <div class="rang">${Object.entries(p.etapes).map(([e, st]) => `<span class="pastille ${pastille(st)}">${h(NOMS[e] || e)} : ${h(st)}</span>`).join('')}</div>
         ${p.attente ? `<p><b>En attente :</b> ${h(p.attente)}</p>` : ''}
         <div class="rang">
-          ${p.etape === 'devis_images' && p.attente ? `<button class="btn" data-a="aller" data-vue="commandes">Voir le devis</button>` : ''}
+          ${['devis_images', 'devis_clips'].includes(p.etape) && p.attente ? `<button class="btn" data-a="aller" data-vue="commandes">Voir le devis</button>` : ''}
           ${p.etape === 'validation' ? `<button class="btn primaire" data-a="valider-storyboard" data-id="${h(p.id)}">Valider le storyboard</button>` : ''}
+          ${p.etape === 'validation_finale' ? `<button class="btn primaire" data-a="valider-video" data-id="${h(p.id)}">Valider la vidéo</button>` : ''}
           ${p.statut === 'en cours' ? `<button class="btn" data-a="avancer-production" data-id="${h(p.id)}">Faire avancer</button>` : ''}
           ${medias(p.id).length ? `<button class="btn" data-a="aller" data-vue="projets">Voir la planche et l'animatique</button>` : ''}
         </div></article>`).join('') : vide('Aucune production pour l\'instant.')}`;
@@ -569,6 +570,11 @@ $('vue').addEventListener('click', e => {
   if (a === 'point-equipe') return faire(async () => { await deposer({ action: 'point_equipe' }, "Max fait le point avec l'équipe… En ligne, comptez une minute."); bandeau("Point d'équipe publié dans le fil.", 'ok'); afficher(); });
   if (a === 'lire-courriels') return faire(async () => { const r = await deposer({ action: 'lire_courriels' }, 'Lecture de la boîte mail…'); bandeau(`${r.lus} nouvel(s) e-mail(s) lu(s), ${r.prospects.length} réponse(s) de prospect.`, 'ok'); afficher(); });
   if (a === 'avancer-production') return faire(async () => { const r = await deposer({ action: 'avancer_production', id: b.dataset.id }, "Les agents travaillent sur la production… Comptez 2 à 5 minutes."); bandeau(`Étapes faites : ${(r.faites || []).join(', ') || 'aucune'}${r.attente ? ' · en attente : ' + r.attente : ''}`, 'ok'); afficher(); });
+  if (a === 'valider-video') {
+    if (b.dataset.sur !== '1') { b.dataset.sur = '1'; b.textContent = 'Confirmer : vidéo validée'; return; }
+    return faire(async () => { await deposer({ action: 'valider_video', id: b.dataset.id }, 'Validation de la vidéo…'); bandeau('Vidéo validée : production terminée.', 'ok'); afficher(); });
+  }
+  if (a === 'parler-claude') { S.vue = 'equipe'; S.agent = 'claudebis'; afficher(); const x = $('panneau-agent'); if (x) x.scrollIntoView({ behavior: 'smooth' }); return; }
   if (a === 'valider-storyboard') {
     if (b.dataset.sur !== '1') { b.dataset.sur = '1'; b.textContent = 'Confirmer : storyboard validé'; return; }
     return faire(async () => { const r = await deposer({ action: 'valider_storyboard', id: b.dataset.id }, 'Validation du storyboard…'); bandeau('Storyboard validé. ' + (r.attente || ''), 'ok'); afficher(); });
@@ -594,15 +600,6 @@ $('vue').addEventListener('submit', e => {
   if (e.target.id === 'form-production') return faire(async () => {
     const r = await deposer({ action: 'creer_production', titre: zone('prod-titre'), demande: zone('prod-demande') }, "Lina, Victor, Théo et Jade travaillent sur votre vidéo… Comptez 3 à 6 minutes.");
     bandeau(`Production lancée : étapes faites ${(r.faites || []).join(', ') || 'aucune'}${r.attente ? ' · en attente : ' + r.attente : ''}`, 'ok'); afficher();
-  });
-  if (e.target.id === 'form-claude') return faire(async () => {
-    const message = zone('dire-claude');
-    const id = Array.from(crypto.getRandomValues(new Uint8Array(9)), x => 'abcdefghijklmnopqrstuvwxyz0123456789'[x % 36]).join('');
-    const r = await fetch(adresse(`boite/claude/${id}.json`), { method: 'PUT', headers: entetes(),
-      body: JSON.stringify({ message: 'Demande à Claude', content: versB64(JSON.stringify({ message, date: new Date().toISOString() })), branch: 'main' }) });
-    if (!r.ok) throw new Error(`Envoi impossible (code ${r.status}).`);
-    S.T.claude_demandes = (S.T.claude_demandes || []).concat([{ id, message, reponse: null }]);
-    bandeau('Message envoyé à Claude. Il se lance sur GitHub et répond ici dans quelques minutes.', 'ok'); afficher();
   });
   if (e.target.id === 'form-reunion') return faire(async () => {
     const texte = zone('dire-equipe');
