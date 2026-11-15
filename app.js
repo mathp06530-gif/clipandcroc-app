@@ -153,6 +153,9 @@ const VUES = {
         ${T.equipe.agents.filter(a => a.propositions).map(a => `<div class="carte"><h3>${h(nomAgent(a.id))}</h3>
           <p class="texte-message">${h(a.propositions)}</p>
           <div class="rang"><button class="btn primaire" data-a="adopter" data-agent="${h(a.id)}">Accepter</button><button class="btn" data-a="refuser" data-agent="${h(a.id)}">Refuser</button></div></div>`).join('')}</div>` : ''}
+      ${(T.chef || []).length ? (() => { const c = T.chef[T.chef.length - 1]; const pm = Array.isArray(c.pour_mathis) ? c.pour_mathis : (c.pour_mathis ? [c.pour_mathis] : []);
+        return `<div class="bloc"><h2>Max, chef de projet</h2><div class="carte"><p class="muted">Dernier passage : ${h((c.date || '').replace('T', ' '))} · actions : ${h((c.faites || []).join(', ') || 'aucune')}</p>
+        <p>${h(c.rapport || '')}</p>${pm.length ? `<h3>Pour vous</h3><ul class="liste">${pm.map(x => `<li>${h(x)}</li>`).join('')}</ul>` : ''}</div></div>`; })() : ''}
       <div class="chiffres">
         ${[['Prospects', T.prospects.length], ['Envoyés aujourd\'hui', p.envoyes_aujourdhui.premiers + p.envoyes_aujourdhui.relances],
            ['En discussion', T.prospects.filter(x => x.statut === 'en discussion').length], ['Clients', T.prospects.filter(x => x.statut === 'client').length],
@@ -217,13 +220,13 @@ const VUES = {
 
       <div class="deux">
         <form class="carte" id="form-prospect"><h2>Ajouter un prospect</h2>
-          <label for="np-nom">Nom du commerce</label><input id="np-nom" required maxlength="80">
-          <label for="np-ville">Ville</label><input id="np-ville" maxlength="60">
+          <label for="np-nom">Nom de la marque</label><input id="np-nom" required maxlength="80">
+          <label for="np-ville">Ville de l'atelier (ou « en ligne »)</label><input id="np-ville" maxlength="60">
           <label for="np-lien">Lien du profil Instagram ou TikTok</label><input id="np-lien" required placeholder="https://www.instagram.com/…">
-          <label for="np-vu">Ce que vous avez vu sur son compte (un plat précis, ce qui manque)</label><textarea id="np-vu" maxlength="300"></textarea>
+          <label for="np-vu">Ce que vous avez vu sur son compte (une bougie précise, ce qui manque en vidéo)</label><textarea id="np-vu" maxlength="300"></textarea>
           <button class="btn primaire" type="submit">Ajouter</button></form>
         <div class="bloc"><h2>Tous les prospects</h2>
-          ${T.prospects.length ? `<div class="defile"><table><thead><tr><th>Commerce</th><th>Ville</th><th>Statut</th><th>Relances</th></tr></thead><tbody>
+          ${T.prospects.length ? `<div class="defile"><table><thead><tr><th>Marque</th><th>Ville</th><th>Statut</th><th>Relances</th></tr></thead><tbody>
             ${T.prospects.slice().reverse().map(x => `<tr><td>${h(x.nom)}</td><td>${h(x.ville)}</td><td><span class="pastille ${x.statut === 'client' ? 'ok' : ['refus', 'ne plus contacter'].includes(x.statut) ? 'danger' : ''}">${h(x.statut)}</span></td><td class="n">${h(x.relances || 0)}</td></tr>`).join('')}
           </tbody></table></div>` : vide('La liste est vide.')}</div>
       </div>`;
@@ -232,7 +235,7 @@ const VUES = {
   equipe() {
     const T = S.T, ouvert = T.equipe.agents.find(a => a.id === S.agent);
     const carte = a => `<article class="carte"><div class="agent-tete">${avatar(a)}<div><h3>${h(a.prenom)}</h3><p class="muted">${h(a.metier)}</p></div></div>
-      <div class="rang"><span class="pastille">${a.execution === 'openrouter' ? 'gratuit · ' + h(court(a.modeles[0])) : 'dans Claude Code'}</span>
+      <div class="rang"><span class="pastille">${['groq', 'openrouter'].includes(a.execution) ? (String(a.modeles[0]).startsWith('groq:') ? 'Groq · ' : 'gratuit · ') + h(court(a.modeles[0])) : 'dans Claude Code'}</span>
         ${a.resultats.reussi ? `<span class="pastille ok">${a.resultats.reussi} réussi(s)</span>` : ''}${a.resultats.corrige ? `<span class="pastille attente">${a.resultats.corrige} corrigé(s)</span>` : ''}
         ${a.resultats.rate ? `<span class="pastille danger">${a.resultats.rate} raté(s)</span>` : ''}${a.propositions ? '<span class="pastille attente">leçons à valider</span>' : ''}</div>
       <button class="btn" data-a="ouvrir-agent" data-agent="${h(a.id)}">${a.execution === 'openrouter' ? 'Lui parler' : 'Voir sa fiche'}</button></article>`;
@@ -324,7 +327,7 @@ const VUES = {
       <div class="carte"><h3>Règles contre les erreurs</h3><ul class="liste">
         <li>Un projet = un dossier, un brief, un client. Deux projets ne partagent jamais un dossier.</li>
         <li>Une vidéo client ne passe en « Validée » qu'après votre accord, et en « Livrée » qu'avec la date d'envoi.</li>
-        <li>Le portfolio est fictif : il n'est jamais présenté comme le travail d'un vrai commerce.</li>
+        <li>Le portfolio est fictif : il n'est jamais présenté comme le travail d'une vraie marque.</li>
         <li>Toute incohérence apparaît dans les alertes ci-dessus.</li></ul></div>`;
   },
 
