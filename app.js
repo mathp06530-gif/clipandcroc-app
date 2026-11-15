@@ -309,6 +309,22 @@ const VUES = {
         <div class="bloc"><div class="pole-titre"><span class="etiquette">Pôle ${h(pole)}</span></div><div class="grille">${liste.map(carte).join('')}</div></div>` : ''; }).join('')}`;
   },
 
+  fil() {
+    const T = S.T, F = (T.fil_equipe || []).slice().reverse();
+    const agentDe = id => T.equipe.agents.find(a => a.id === id) || { prenom: id, couleur: '#7a6d62' };
+    const genre = { point: "point d'équipe", question: 'question', reponse: 'réponse', info: 'nouvelle' };
+    let jour = '';
+    const lignes = F.map(m => {
+      const j = (m.date || '').slice(0, 10), titre = j !== jour ? (jour = j, `<p class="etiquette">${h(j.slice(8, 10) + '/' + j.slice(5, 7))}</p>`) : '';
+      return `${titre}<article class="carte"><div class="agent-tete">${avatar(agentDe(m.de))}<div><h3>${h(m.nom)} <span class="muted">→ ${h(m.a_nom)}</span></h3>
+        <p class="muted">${h((m.date || '').slice(11, 16).replace(':', ' h '))} · ${h(genre[m.genre] || m.genre)}</p></div></div><p class="texte-message">${h(m.texte)}</p></article>`;
+    }).join('');
+    return `
+      <div class="bloc"><div class="rang espace"><h2>Fil de l'équipe</h2><button class="btn primaire" data-a="point-equipe">Faire un point d'équipe maintenant</button></div>
+        <p class="muted">Ici, les agents se parlent de l'avancement du projet : Max publie chacun de ses passages et fait un point d'équipe à 9 h et à 17 h (il pose des questions, les agents concernés répondent) ; chaque agent annonce ce qu'il vient de faire (messages écrits, prospects trouvés, devis accepté, publication en ligne, leçons adoptées). Vous lisez ; pour leur parler, passez par l'onglet Équipe.</p></div>
+      <div class="bloc">${lignes || vide("Le fil est vide pour l'instant. Il se remplit au prochain passage de Max, ou avec le bouton ci-dessus.")}</div>`;
+  },
+
   commandes() {
     const K = S.T.kie;
     return `
@@ -513,6 +529,7 @@ $('vue').addEventListener('click', e => {
     return faire(() => deposer({ action: 'accepter_devis', brief: b.dataset.brief }));
   }
   if (a === 'refuser-devis') return faire(() => deposer({ action: 'refuser_devis', brief: b.dataset.brief }));
+  if (a === 'point-equipe') return faire(async () => { await deposer({ action: 'point_equipe' }, "Max fait le point avec l'équipe… En ligne, comptez une minute."); bandeau("Point d'équipe publié dans le fil.", 'ok'); afficher(); });
   if (a === 'proposer') return faire(() => deposer({ action: 'proposer_lecons', agent }, 'L\'agent relit ses résultats…'));
   if (a === 'adopter') return faire(async () => { const r = await deposer({ action: 'adopter_lecons', agent }, 'Enregistrement des leçons… En ligne, comptez 30 à 60 secondes.'); bandeau(`${r.adoptees || 0} leçon(s) de ${nomAgent(agent)} adoptée(s) : elles s'appliquent dès sa prochaine tâche.`, 'ok'); afficher(); });
   if (a === 'refuser') return faire(async () => { await deposer({ action: 'refuser_lecons', agent }, 'Refus des leçons… En ligne, comptez 30 à 60 secondes.'); bandeau(`Leçons de ${nomAgent(agent)} refusées.`, 'ok'); afficher(); });
