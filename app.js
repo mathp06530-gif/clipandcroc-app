@@ -139,8 +139,9 @@ const VUES = {
       [p.nouveaux_sans_message, 'prospect(s) sans message écrit', 'prospection'],
       [p.relances_dues.length, 'relance(s) à faire', 'prospection'],
       [brouillons, 'réponse(s) prête(s) à envoyer', 'prospection'],
-      [T.kie.devis.filter(d => d.statut === 'en attente').length, 'devis Kie à accepter', 'commandes'],
+      [T.kie.devis.filter(d => d.statut === 'en attente').length, 'devis Kie à accepter ou refuser', 'commandes'],
       [propositions, 'agent(s) proposent des leçons à valider', 'equipe'],
+      [(T.vitrine ? T.vitrine.jours.filter(j => !j.publie && j.date <= new Date().toISOString().slice(0, 10)).length : 0), 'publication(s) de la vitrine à faire', 'vitrine'],
     ].filter(t => t[0] > 0);
     return `
       <div class="bloc"><div class="rang espace"><h2>Objectif : ${nf(T.objectif.encaisse_eur)} € sur ${T.objectif.cible_eur} €</h2><span class="pastille">J-${jours}</span></div>
@@ -167,6 +168,35 @@ const VUES = {
           <td><span class="pastille ${j.ok ? 'ok' : 'danger'}">${j.ok ? (j.discussion ? 'discussion' : 'tâche faite') : 'échec'}</span></td>
           <td class="n">${h(court(j.modele || ''))}</td><td class="n">${j.duree ? h(j.duree) + ' s' : ''}</td></tr>`).join('')}</tbody></table></div>`
           : vide('Le travail des agents apparaîtra ici.')}</div>`;
+  },
+
+  vitrine() {
+    const V = S.T.vitrine;
+    if (!V) return vide('Aucun plan de vitrine pour l\'instant. Ambre le prépare à la demande.');
+    const aujourdhui = new Date().toISOString().slice(0, 10);
+    const faits = V.jours.filter(j => j.publie).length;
+    const credits = V.jours.reduce((s, j) => s + (j.credits || 0), 0);
+    const score = j => (j.stats.partages || 0) + (j.stats.enregistrements || 0);
+    const mesures = V.jours.filter(j => j.publie && (j.stats.vues !== null || j.stats.partages !== null));
+    const meilleur = mesures.slice().sort((a, b) => score(b) - score(a))[0];
+    const champ = (j, k, etiquette) => `<label>${etiquette}<input type="number" min="0" inputmode="numeric" id="st-${k}-${j.date}" value="${j.stats[k] ?? ''}"></label>`;
+    return `
+      <div class="bloc"><div class="rang espace"><h2>${h(V.titre)}</h2><span class="pastille">${faits} / ${V.jours.length} publiés</span></div>
+        ${barre(faits, V.jours.length)}
+        <p class="muted">Plan d'Ambre, relu par Claude. Chaque contenu payant passe par un devis que vous acceptez (onglet Commandes et devis). Vous publiez vous-même, puis vous cliquez « Publié » et vous notez les chiffres le lendemain (statistiques Instagram). La prospection reprend le ${h(V.prospection_le.split('-').reverse().join('/'))} avec le format qui a le mieux marché.</p>
+        <p class="muted">Crédits prévus sur la semaine : environ ${nf(credits)}.</p></div>
+      ${meilleur ? `<div class="bloc"><h2>Ce qui marche le mieux pour l'instant</h2><div class="carte bon"><b>${h(meilleur.format)}</b> du ${h(meilleur.jour.toLowerCase())} : ${nf(meilleur.stats.partages || 0)} partage(s), ${nf(meilleur.stats.enregistrements || 0)} enregistrement(s), ${nf(meilleur.stats.vues || 0)} vue(s). C'est le format que Sacha montrera aux prospects.</div></div>` : ''}
+      <div class="bloc"><h2>Jour par jour</h2>
+        ${V.jours.map(j => `<article class="carte ${j.publie ? 'bon' : j.date === aujourdhui ? 'attente' : ''}">
+          <div class="rang espace"><h3>${h(j.jour)} ${h(j.date.slice(8, 10))}/${h(j.date.slice(5, 7))} · ${h(j.heure.replace(':', ' h '))}</h3>
+            <span class="pastille ${j.publie ? 'ok' : j.date === aujourdhui ? 'attente' : ''}">${j.publie ? 'publié' : j.date === aujourdhui ? 'aujourd\'hui' : j.date < aujourdhui ? 'en retard' : 'à venir'}</span></div>
+          <p><b>${h(j.format)}</b> : ${h(j.sujet)}${j.credits ? ` <span class="pastille attente">${nf(j.credits)} crédits, sur devis</span>` : ' <span class="pastille">gratuit</span>'}</p>
+          <p class="muted">Stories : ${j.stories.map(h).join(' · ')}</p>
+          <p class="muted">À faire : ${j.gestes.map(h).join(' · ')}</p>
+          <div class="rang">${j.publie ? `<button class="btn" data-a="vitrine-annule" data-date="${h(j.date)}">Annuler « publié »</button>` : `<button class="btn primaire" data-a="vitrine-publie" data-date="${h(j.date)}">Publié</button>`}</div>
+          ${j.publie ? `<div class="chiffres">${champ(j, 'vues', 'Vues')}${champ(j, 'partages', 'Partages')}${champ(j, 'enregistrements', 'Enregistrements')}${champ(j, 'messages', 'Messages reçus')}</div>
+            <div class="rang"><button class="btn" data-a="vitrine-stats" data-date="${h(j.date)}">Enregistrer les chiffres</button></div>` : ''}
+        </article>`).join('')}</div>`;
   },
 
   prospection() {
@@ -263,11 +293,11 @@ const VUES = {
   commandes() {
     const K = S.T.kie;
     return `
-      <p class="muted">Marius tient les commandes et prépare les devis Kie. Aucun crédit n'est dépensé sans votre accord. L'accord et la génération se font pour l'instant dans Claude Code ; ils arriveront dans cette page.</p>
+      <p class="muted">Marius tient les commandes et prépare les devis Kie. Aucun crédit n'est dépensé sans votre accord. Vous acceptez ou refusez chaque devis ici ; la génération est ensuite faite par Claude, une image ou un clip à la fois, avec un contrôle automatique de chaque clip.</p>
       <div class="bloc"><h2>Devis Kie</h2>
         ${K.devis.length ? `<div class="defile"><table><thead><tr><th>Commande</th><th>Type</th><th>Détail</th><th>Dépensé / devis</th><th>État</th></tr></thead><tbody>
           ${K.devis.map(d => `<tr><td>${h(d.brief)}</td><td>${h(d.type)}</td><td>${d.lignes.map(l => `${h(l.modele)} × ${nf(l.quantite)}`).join('<br>')}</td>
-          <td class="n">${nf(d.depense)} / ${nf(d.total)} crédits</td><td><span class="pastille ${d.statut === 'approuvé' ? 'ok' : 'attente'}">${h(d.statut)}</span></td></tr>`).join('')}</tbody></table></div>` : vide('Aucun devis.')}</div>
+          <td class="n">${nf(d.depense)} / ${nf(d.total)} crédits</td><td><span class="pastille ${d.statut === 'approuvé' ? 'ok' : d.statut === 'refusé' ? 'danger' : 'attente'}">${h(d.statut)}</span>${d.statut === 'en attente' ? `<div class="rang"><button class="btn primaire" data-a="accepter-devis" data-brief="${h(d.brief)}" data-total="${h(d.total)}">Accepter</button><button class="btn" data-a="refuser-devis" data-brief="${h(d.brief)}">Refuser</button></div>` : ''}</td></tr>`).join('')}</tbody></table></div>` : vide('Aucun devis.')}</div>
       <div class="deux">
         <div class="bloc"><h2>Générations</h2>
           ${K.journal.length ? `<div class="defile"><table><thead><tr><th>Date</th><th>Commande</th><th>Modèle</th><th>Estimé</th><th>Réel</th></tr></thead><tbody>
@@ -351,10 +381,12 @@ const VUES = {
     return `
       <div class="bloc"><div class="rang espace"><h2>Requêtes gratuites aujourd'hui : ${q.total} sur ${T.quota.limite}</h2>${q.echecs ? `<span class="pastille attente">${q.echecs} échec(s) comptés</span>` : ''}</div>
         ${barre(q.total, T.quota.limite)}
-        <p class="muted">Offre gratuite d'OpenRouter : ${T.quota.limite} requêtes par jour pour toute l'équipe. Les ${T.quota.reserve} dernières sont gardées en réserve. Une tâche d'agent ou un message de discussion compte pour une requête.</p></div>
+        <p class="muted">Quatre fournisseurs gratuits : NVIDIA (Nemotron Ultra, Mistral Large : l'écriture), Gemini (les images), Groq (gpt-oss : Max et la recherche web), OpenRouter (dernier secours). Quand un modèle est épuisé ou en panne, le suivant prend le relais tout seul.</p>
+        ${T.fournisseurs ? `<div class="defile"><table><thead><tr><th>Fournisseur</th><th>Clé</th><th>Requêtes aujourd'hui</th><th>Garde-fou par jour</th></tr></thead><tbody>
+          ${Object.entries(T.fournisseurs).map(([n, f]) => `<tr><td>${h({ nvidia: 'NVIDIA', gemini: 'Gemini', groq: 'Groq', openrouter: 'OpenRouter' }[n] || n)}</td><td><span class="pastille ${f.actif ? 'ok' : 'danger'}">${f.actif ? 'présente' : 'absente'}</span></td><td class="n">${Object.entries((T.quota.jours[new Date().toISOString().slice(0, 10)] || {}).par_modele || {}).filter(e => (['nvidia', 'gemini', 'groq'].includes(e[0].split(':')[0]) ? e[0].split(':')[0] : 'openrouter') === n).reduce((s, e) => s + e[1], 0)}</td><td class="n">${nf(f.limite)}</td></tr>`).join('')}</tbody></table></div>` : ''}</div>
       <div class="deux">
         <div class="bloc"><h2>Modèles en service</h2><div class="defile"><table><thead><tr><th>Agent</th><th>Modèle principal</th><th>Secours</th></tr></thead><tbody>
-          ${T.equipe.agents.map(a => `<tr><td>${h(a.prenom)}</td><td class="n">${h(court(a.modeles[0]))}</td><td class="n">${a.modeles.slice(1).map(m => h(court(m))).join(', ') || (a.execution === 'openrouter' ? '' : 'abonnement Claude')}</td></tr>`).join('')}</tbody></table></div></div>
+          ${T.equipe.agents.map(a => `<tr><td>${h(a.prenom)}</td><td class="n">${h(court(a.modeles[0]))}</td><td class="n">${a.modeles.slice(1).map(m => h(court(m))).join(', ')}</td></tr>`).join('')}</tbody></table></div></div>
         <div class="bloc"><h2>Utilisation par jour</h2>
           ${jours.length ? `<div class="defile"><table><thead><tr><th>Jour</th><th>Requêtes</th><th>Échecs</th><th>Par modèle</th></tr></thead><tbody>
             ${jours.map(([j, v]) => `<tr><td class="n">${h(j)}</td><td class="n">${v.total}</td><td class="n">${v.echecs || 0}</td><td>${Object.entries(v.par_modele || {}).map(e => `${h(court(e[0]))} ${e[1]}`).join(', ')}</td></tr>`).join('')}</tbody></table></div>` : vide('Aucune requête enregistrée.')}</div>
@@ -366,12 +398,14 @@ const VUES = {
     return `
       <div class="bloc"><h2>Clés utilisées par l'équipe</h2>
         <div class="defile"><table><thead><tr><th>Clé</th><th>Sert à</th><th>Où elle est rangée</th><th>Vue par les automates</th></tr></thead><tbody>
-          <tr><td class="n">OPENROUTER_API_KEY</td><td>Les modèles gratuits des agents</td><td>Secrets du dépôt GitHub</td><td><span class="pastille ${T.cles.OPENROUTER_API_KEY ? 'ok' : 'danger'}">${T.cles.OPENROUTER_API_KEY ? 'oui' : 'non'}</span></td></tr>
-          <tr><td class="n">GROQ_API_KEY</td><td>Les modèles gratuits de secours (environ 900 requêtes de plus par jour)</td><td>Secrets du dépôt GitHub et fichier .env du PC</td><td><span class="pastille ${T.cles.GROQ_API_KEY ? 'ok' : 'attente'}">${T.cles.GROQ_API_KEY ? 'oui' : 'pas encore'}</span></td></tr>
-          <tr><td class="n">KIE_API_KEY</td><td>La génération d'images et de clips</td><td>Fichier .env du PC pour l'instant</td><td><span class="pastille">${T.cles.KIE_API_KEY ? 'oui' : 'pas encore'}</span></td></tr>
+          <tr><td class="n">NVIDIA_API_KEY</td><td>L'écriture de presque toute l'équipe (Nemotron Ultra, Mistral Large)</td><td>Environnement GitHub « KIE_API_KEY », environnement cloud, fichier .env du PC</td><td><span class="pastille ${T.cles.NVIDIA_API_KEY ? 'ok' : 'danger'}">${T.cles.NVIDIA_API_KEY ? 'oui' : 'non'}</span></td></tr>
+          <tr><td class="n">GEMINI_API_KEY</td><td>La lecture des images (Iris, Malo, Inès, contrôle des clips)</td><td>Environnement GitHub « KIE_API_KEY », environnement cloud, fichier .env du PC</td><td><span class="pastille ${T.cles.GEMINI_API_KEY ? 'ok' : 'danger'}">${T.cles.GEMINI_API_KEY ? 'oui' : 'non'}</span></td></tr>
+          <tr><td class="n">GROQ_API_KEY</td><td>Max, le chef de projet, et la recherche web de Nora</td><td>Environnement GitHub « KIE_API_KEY », environnement cloud, fichier .env du PC</td><td><span class="pastille ${T.cles.GROQ_API_KEY ? 'ok' : 'danger'}">${T.cles.GROQ_API_KEY ? 'oui' : 'non'}</span></td></tr>
+          <tr><td class="n">OPENROUTER_API_KEY</td><td>Le dernier secours</td><td>Environnement GitHub « KIE_API_KEY », environnement cloud, fichier .env du PC</td><td><span class="pastille ${T.cles.OPENROUTER_API_KEY ? 'ok' : 'danger'}">${T.cles.OPENROUTER_API_KEY ? 'oui' : 'non'}</span></td></tr>
+          <tr><td class="n">KIE_API_KEY</td><td>La génération d'images et de clips (toujours sur devis)</td><td>Environnement GitHub « KIE_API_KEY », environnement cloud, fichier .env du PC</td><td><span class="pastille ${T.cles.KIE_API_KEY ? 'ok' : 'danger'}">${T.cles.KIE_API_KEY ? 'oui' : 'non'}</span></td></tr>
           <tr><td class="n">Jeton GitHub</td><td>L'accès de cette page au dépôt</td><td>Ce navigateur, chiffré par votre mot de passe</td><td><span class="pastille ok">${LOCAL ? 'inutile en local' : 'en service'}</span></td></tr>
         </tbody></table></div>
-        <p class="muted">Aucune clé n'est affichée ni stockée dans cette page. ${secrets ? `Pour ajouter ou changer une clé : <a href="${h(secrets)}" target="_blank" rel="noopener noreferrer">secrets du dépôt</a>.` : ''}</p></div>
+        <p class="muted">Aucune clé n'est affichée ni stockée dans cette page. ${secrets ? `Pour ajouter ou changer une clé : <a href="${h(secrets)}" target="_blank" rel="noopener noreferrer">secrets du dépôt</a> (environnement « KIE_API_KEY »).` : ''}</p></div>
       ${LOCAL ? '' : `<div class="carte"><h3>Connecter une tablette ou un téléphone</h3>
         <p class="muted">Crée un lien qui contient votre accès, chiffré par votre mot de passe. Ouvrez-le sur l'autre appareil (copié, envoyé à vous-même ou passé par le câble USB dans un fichier) : il ne restera qu'à taper le mot de passe. Ne le partagez avec personne.</p>
         <div class="rang"><button class="btn primaire" data-a="lien-appareil">Créer le lien</button>${S.lien ? '<button class="btn" data-a="copier-lien">Copier le lien</button><button class="btn" data-a="fichier-lien">Enregistrer dans un fichier</button>' : ''}</div>
@@ -451,6 +485,15 @@ $('vue').addEventListener('click', e => {
     if (b.dataset.sur !== '1') { b.dataset.sur = '1'; b.textContent = 'Confirmer : c\'est définitif'; return; }
     return faire(() => deposer({ action: 'clore', lien, ne_plus_contacter: a === 'stop' }));
   }
+  if (a === 'vitrine-publie' || a === 'vitrine-annule') return faire(() => deposer({ action: 'vitrine_publie', date: b.dataset.date, publie: a === 'vitrine-publie' }));
+  if (a === 'vitrine-stats') return faire(() => deposer({ action: 'vitrine_stats', date: b.dataset.date,
+    vues: zone('st-vues-' + b.dataset.date), partages: zone('st-partages-' + b.dataset.date),
+    enregistrements: zone('st-enregistrements-' + b.dataset.date), messages: zone('st-messages-' + b.dataset.date) }));
+  if (a === 'accepter-devis') {
+    if (b.dataset.sur !== '1') { b.dataset.sur = '1'; b.textContent = 'Confirmer : ' + b.dataset.total + ' crédits'; return; }
+    return faire(() => deposer({ action: 'accepter_devis', brief: b.dataset.brief }));
+  }
+  if (a === 'refuser-devis') return faire(() => deposer({ action: 'refuser_devis', brief: b.dataset.brief }));
   if (a === 'proposer') return faire(() => deposer({ action: 'proposer_lecons', agent }, 'L\'agent relit ses résultats…'));
   if (a === 'adopter') return faire(() => deposer({ action: 'adopter_lecons', agent }));
   if (a === 'refuser') return faire(() => deposer({ action: 'refuser_lecons', agent }));
