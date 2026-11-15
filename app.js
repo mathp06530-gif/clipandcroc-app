@@ -235,7 +235,7 @@ const VUES = {
   equipe() {
     const T = S.T, ouvert = T.equipe.agents.find(a => a.id === S.agent);
     const carte = a => `<article class="carte"><div class="agent-tete">${avatar(a)}<div><h3>${h(a.prenom)}</h3><p class="muted">${h(a.metier)}</p></div></div>
-      <div class="rang"><span class="pastille">${['groq', 'openrouter'].includes(a.execution) ? (String(a.modeles[0]).startsWith('groq:') ? 'Groq · ' : 'gratuit · ') + h(court(a.modeles[0])) : 'dans Claude Code'}</span>
+      <div class="rang"><span class="pastille">${['libre', 'groq', 'openrouter'].includes(a.execution) ? ({ groq: 'Groq', nvidia: 'NVIDIA', gemini: 'Gemini' }[String(a.modeles[0]).split(':')[0]] || 'gratuit') + ' · ' + h(court(String(a.modeles[0]).replace(/^(groq|nvidia|gemini):/, ''))) : 'dans Claude Code'}</span>
         ${a.resultats.reussi ? `<span class="pastille ok">${a.resultats.reussi} réussi(s)</span>` : ''}${a.resultats.corrige ? `<span class="pastille attente">${a.resultats.corrige} corrigé(s)</span>` : ''}
         ${a.resultats.rate ? `<span class="pastille danger">${a.resultats.rate} raté(s)</span>` : ''}${a.propositions ? '<span class="pastille attente">leçons à valider</span>' : ''}</div>
       <button class="btn" data-a="ouvrir-agent" data-agent="${h(a.id)}">${a.execution === 'openrouter' ? 'Lui parler' : 'Voir sa fiche'}</button></article>`;
