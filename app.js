@@ -70,7 +70,7 @@ async function deposer(demande, patience) {
     const r = await fetch(adresse(`boite/demandes/${id}.json`), { method: 'PUT', headers: entetes(),
       body: JSON.stringify({ message: `Demande : ${demande.action}`, content: versB64(JSON.stringify(demande)), branch: 'main' }) });
     if (!r.ok) throw new Error(r.status === 403 || r.status === 401 ? 'GitHub refuse l\'écriture : vérifiez les droits du jeton.' : `Dépôt de la demande impossible (code ${r.status}).`);
-    const tours = ['creer_production', 'avancer_production', 'valider_storyboard', 'valider_video', 'accepter_devis', 'reunion'].includes(demande.action) ? 160 : 75;
+    const tours = ['creer_production', 'avancer_production', 'valider_storyboard', 'valider_video', 'chercher_references', 'accepter_devis', 'reunion'].includes(demande.action) ? 160 : 75;
     for (let essai = 0; essai < tours; essai++) {
       await new Promise(f => setTimeout(f, LOCAL ? 300 : 4000));
       const brut = await lire(`boite/reponses/${id}.json`);
@@ -218,6 +218,10 @@ const VUES = {
     return `
       <div class="bloc"><h2>Productions</h2>
         <p class="muted">Ici, les agents travaillent pour de vrai : chaque étape est exécutée par l'agent concerné, l'une après l'autre, jusqu'à ce qu'une décision vous attende (accord d'un devis, validation du storyboard). Max fait avancer les productions à chacun de ses passages ; vous pouvez aussi cliquer « Faire avancer ». Tout tourne sur GitHub avec des modèles gratuits : la relecture des prompts, que Claude faisait, est faite par sa copie gratuite.</p></div>
+      <div class="carte"><div class="rang espace"><h3>Bibliothèque de références (Elsa)</h3><span class="pastille">${(S.T.references || {}).total || 0} fiche(s)</span></div>
+        <p class="muted">Elsa cherche de vraies photos de pub (sources : ${h(((S.T.references || {}).sources || []).join(', ') || 'aucune')}), les analyse comme un directeur de la photo et garde les meilleures. Oscar et Théo s'en inspirent. Inspiration seulement : jamais mises dans une vidéo. ${((S.T.references || {}).sources || []).includes('pexels') ? '' : 'Ajoutez la clé gratuite PEXELS_API_KEY pour de bien meilleures photos.'}</p>
+        <form id="form-references" class="rang"><input id="ref-theme" maxlength="150" placeholder="Thème (vide : thème du jour), par exemple : fumée de bougie éteinte"><button class="btn" type="submit">Chercher des références</button></form>
+        ${((S.T.references || {}).dernieres || []).length ? `<ul class="liste">${S.T.references.dernieres.map(r => `<li>${h(r.sujet || r.theme || '')} <span class="muted">(${h(r.source)}${r.auteur ? ', ' + h(r.auteur) : ''})</span></li>`).join('')}</ul>` : ''}</div>
       <div class="carte"><h3>Nouvelle vidéo</h3>
         <form id="form-production" class="bloc"><label>Titre<input id="prod-titre" maxlength="80" required placeholder="Bougie « Nuit de Cèdre » (vitrine)"></label>
           <label>Ce que vous voulez<textarea id="prod-demande" maxlength="1500" required placeholder="Reel héros de la vitrine : bougie fictive, ambiance clair-obscur, flamme et fumée fine…"></textarea></label>
@@ -600,6 +604,10 @@ $('vue').addEventListener('submit', e => {
   if (e.target.id === 'form-production') return faire(async () => {
     const r = await deposer({ action: 'creer_production', titre: zone('prod-titre'), demande: zone('prod-demande') }, "Lina, Victor, Théo et Jade travaillent sur votre vidéo… Comptez 3 à 6 minutes.");
     bandeau(`Production lancée : étapes faites ${(r.faites || []).join(', ') || 'aucune'}${r.attente ? ' · en attente : ' + r.attente : ''}`, 'ok'); afficher();
+  });
+  if (e.target.id === 'form-references') return faire(async () => {
+    const r = await deposer({ action: 'chercher_references', theme: zone('ref-theme') }, 'Elsa cherche et analyse des références… Comptez 2 à 4 minutes.');
+    bandeau(`${r.ajoutees} référence(s) ajoutée(s), ${r.ecartees} écartée(s). Total : ${r.total}.`, 'ok'); afficher();
   });
   if (e.target.id === 'form-reunion') return faire(async () => {
     const texte = zone('dire-equipe');
