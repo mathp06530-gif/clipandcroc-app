@@ -219,8 +219,9 @@ const VUES = {
       <div class="bloc"><h2>Productions</h2>
         <p class="muted">Ici, les agents travaillent pour de vrai : chaque étape est exécutée par l'agent concerné, l'une après l'autre, jusqu'à ce qu'une décision vous attende (accord d'un devis, validation du storyboard). Max fait avancer les productions à chacun de ses passages ; vous pouvez aussi cliquer « Faire avancer ». Tout tourne sur GitHub avec des modèles gratuits : la relecture des prompts, que Claude faisait, est faite par sa copie gratuite.</p></div>
       <div class="carte"><div class="rang espace"><h3>Bibliothèque de références (Elsa)</h3><span class="pastille">${(S.T.references || {}).total || 0} fiche(s)</span></div>
-        <p class="muted">Elsa cherche de vraies photos de pub (sources : ${h(((S.T.references || {}).sources || []).join(', ') || 'aucune')}), les analyse comme un directeur de la photo et garde les meilleures. Oscar et Théo s'en inspirent. Inspiration seulement : jamais mises dans une vidéo. ${((S.T.references || {}).sources || []).includes('pexels') ? '' : 'Ajoutez la clé gratuite PEXELS_API_KEY pour de bien meilleures photos.'}</p>
+        <p class="muted">Elsa cherche de vraies photos de pub (sources : ${h(((S.T.references || {}).sources || []).join(', ') || 'aucune')}), les analyse comme un directeur de la photo et garde les meilleures. Oscar et Théo s'en inspirent. Inspiration seulement : jamais mises dans une vidéo. Vous pouvez aussi lui donner une photo que vous aimez : sur pexels.com, ouvrez la photo et collez son lien ci-dessous.</p>
         <form id="form-references" class="rang"><input id="ref-theme" maxlength="150" placeholder="Thème (vide : thème du jour), par exemple : fumée de bougie éteinte"><button class="btn" type="submit">Chercher des références</button></form>
+        <form id="form-ref-lien" class="rang"><input id="ref-lien" type="url" maxlength="400" required placeholder="Lien d'une photo, par exemple https://www.pexels.com/fr-fr/photo/…"><button class="btn" type="submit">Ajouter cette photo</button></form>
         ${((S.T.references || {}).dernieres || []).length ? `<ul class="liste">${S.T.references.dernieres.map(r => `<li>${h(r.sujet || r.theme || '')} <span class="muted">(${h(r.source)}${r.auteur ? ', ' + h(r.auteur) : ''})</span></li>`).join('')}</ul>` : ''}</div>
       <div class="carte"><h3>Nouvelle vidéo</h3>
         <form id="form-production" class="bloc"><label>Titre<input id="prod-titre" maxlength="80" required placeholder="Bougie « Nuit de Cèdre » (vitrine)"></label>
@@ -604,6 +605,10 @@ $('vue').addEventListener('submit', e => {
   if (e.target.id === 'form-production') return faire(async () => {
     const r = await deposer({ action: 'creer_production', titre: zone('prod-titre'), demande: zone('prod-demande') }, "Lina, Victor, Théo et Jade travaillent sur votre vidéo… Comptez 3 à 6 minutes.");
     bandeau(`Production lancée : étapes faites ${(r.faites || []).join(', ') || 'aucune'}${r.attente ? ' · en attente : ' + r.attente : ''}`, 'ok'); afficher();
+  });
+  if (e.target.id === 'form-ref-lien') return faire(async () => {
+    const r = await deposer({ action: 'ajouter_reference', lien: zone('ref-lien') }, 'Elsa analyse la photo… En ligne, comptez une minute.');
+    bandeau(r.ajoutee ? `Photo ajoutée : ${r.sujet || ''} (total : ${r.total}).` : `Photo non ajoutée : ${r.raison || ''}`, r.ajoutee ? 'ok' : ''); afficher();
   });
   if (e.target.id === 'form-references') return faire(async () => {
     const r = await deposer({ action: 'chercher_references', theme: zone('ref-theme') }, 'Elsa cherche et analyse des références… Comptez 2 à 4 minutes.');
