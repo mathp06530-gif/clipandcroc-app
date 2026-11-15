@@ -495,8 +495,8 @@ $('vue').addEventListener('click', e => {
   }
   if (a === 'refuser-devis') return faire(() => deposer({ action: 'refuser_devis', brief: b.dataset.brief }));
   if (a === 'proposer') return faire(() => deposer({ action: 'proposer_lecons', agent }, 'L\'agent relit ses résultats…'));
-  if (a === 'adopter') return faire(() => deposer({ action: 'adopter_lecons', agent }));
-  if (a === 'refuser') return faire(() => deposer({ action: 'refuser_lecons', agent }));
+  if (a === 'adopter') return faire(async () => { const r = await deposer({ action: 'adopter_lecons', agent }, 'Enregistrement des leçons… En ligne, comptez 30 à 60 secondes.'); bandeau(`${r.adoptees || 0} leçon(s) de ${nomAgent(agent)} adoptée(s) : elles s'appliquent dès sa prochaine tâche.`, 'ok'); afficher(); });
+  if (a === 'refuser') return faire(async () => { await deposer({ action: 'refuser_lecons', agent }, 'Refus des leçons… En ligne, comptez 30 à 60 secondes.'); bandeau(`Leçons de ${nomAgent(agent)} refusées.`, 'ok'); afficher(); });
 });
 
 $('vue').addEventListener('submit', e => {
