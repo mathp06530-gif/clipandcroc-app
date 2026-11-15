@@ -70,7 +70,7 @@ async function deposer(demande, patience) {
     const r = await fetch(adresse(`boite/demandes/${id}.json`), { method: 'PUT', headers: entetes(),
       body: JSON.stringify({ message: `Demande : ${demande.action}`, content: versB64(JSON.stringify(demande)), branch: 'main' }) });
     if (!r.ok) throw new Error(r.status === 403 || r.status === 401 ? 'GitHub refuse l\'écriture : vérifiez les droits du jeton.' : `Dépôt de la demande impossible (code ${r.status}).`);
-    const tours = ['creer_production', 'avancer_production', 'valider_storyboard', 'valider_video', 'chercher_references', 'accepter_devis', 'reunion'].includes(demande.action) ? 160 : 75;
+    const tours = ['creer_production', 'avancer_production', 'valider_storyboard', 'valider_video', 'chercher_references', 'chercher_prospects', 'reverifier_prospects', 'accepter_devis', 'reunion'].includes(demande.action) ? 160 : 75;
     for (let essai = 0; essai < tours; essai++) {
       await new Promise(f => setTimeout(f, LOCAL ? 300 : 4000));
       const brut = await lire(`boite/reponses/${id}.json`);
@@ -249,6 +249,9 @@ const VUES = {
     const attente = Math.max(0, p.attente_avant_prochain_envoi_s - Math.round((Date.now() - S.chargeLe) / 1000));
     const enCours = T.prospects.filter(x => ['envoyé', 'en discussion'].includes(x.statut));
     return `
+      <div class="carte"><h3>Recherche de marques (Nora)</h3>
+        <p class="muted">Nora ne garde que des marques actives : boutique en ligne qui fonctionne et publication de moins de 3 mois, vérifiées par le programme. Les marques inactives passent en « écarté » (rien n'est supprimé).</p>
+        <div class="rang"><button class="btn" data-a="nora-chercher">Chercher de nouvelles marques</button><button class="btn" data-a="nora-reverifier">Revérifier la liste</button></div></div>
       ${etatGmail}
       <div class="chiffres">
         <div class="chiffre"><span class="etiquette">Premiers messages</span><b>${p.envoyes_aujourdhui.premiers} / ${p.quota_premiers_du_jour}</b></div>
@@ -575,6 +578,8 @@ $('vue').addEventListener('click', e => {
   if (a === 'point-equipe') return faire(async () => { await deposer({ action: 'point_equipe' }, "Max fait le point avec l'équipe… En ligne, comptez une minute."); bandeau("Point d'équipe publié dans le fil.", 'ok'); afficher(); });
   if (a === 'lire-courriels') return faire(async () => { const r = await deposer({ action: 'lire_courriels' }, 'Lecture de la boîte mail…'); bandeau(`${r.lus} nouvel(s) e-mail(s) lu(s), ${r.prospects.length} réponse(s) de prospect.`, 'ok'); afficher(); });
   if (a === 'avancer-production') return faire(async () => { const r = await deposer({ action: 'avancer_production', id: b.dataset.id }, "Les agents travaillent sur la production… Comptez 2 à 5 minutes."); bandeau(`Étapes faites : ${(r.faites || []).join(', ') || 'aucune'}${r.attente ? ' · en attente : ' + r.attente : ''}`, 'ok'); afficher(); });
+  if (a === 'nora-chercher') return faire(async () => { const r = await deposer({ action: 'chercher_prospects' }, 'Nora cherche et le programme vérifie chaque marque… Comptez 2 à 4 minutes.'); bandeau(`${(r.ajoutes || []).length} marque(s) active(s) ajoutée(s). Écartées : ${(r.refuses || []).join(' ; ') || 'aucune'}`, 'ok'); afficher(); });
+  if (a === 'nora-reverifier') return faire(async () => { const r = await deposer({ action: 'reverifier_prospects' }, 'Revérification des marques… Comptez 2 à 4 minutes.'); bandeau(`Gardées : ${(r.gardes || []).length}. Écartées : ${(r.ecartes || []).join(' ; ') || 'aucune'}`, 'ok'); afficher(); });
   if (a === 'valider-video') {
     if (b.dataset.sur !== '1') { b.dataset.sur = '1'; b.textContent = 'Confirmer : vidéo validée'; return; }
     return faire(async () => { await deposer({ action: 'valider_video', id: b.dataset.id }, 'Validation de la vidéo…'); bandeau('Vidéo validée : production terminée.', 'ok'); afficher(); });
