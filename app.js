@@ -70,7 +70,8 @@ async function deposer(demande, patience) {
     const r = await fetch(adresse(`boite/demandes/${id}.json`), { method: 'PUT', headers: entetes(),
       body: JSON.stringify({ message: `Demande : ${demande.action}`, content: versB64(JSON.stringify(demande)), branch: 'main' }) });
     if (!r.ok) throw new Error(r.status === 403 || r.status === 401 ? 'GitHub refuse l\'écriture : vérifiez les droits du jeton.' : `Dépôt de la demande impossible (code ${r.status}).`);
-    for (let essai = 0; essai < 75; essai++) {
+    const tours = ['creer_production', 'avancer_production', 'valider_storyboard', 'accepter_devis', 'reunion'].includes(demande.action) ? 160 : 75;
+    for (let essai = 0; essai < tours; essai++) {
       await new Promise(f => setTimeout(f, LOCAL ? 300 : 4000));
       const brut = await lire(`boite/reponses/${id}.json`);
       if (brut) {
@@ -81,7 +82,7 @@ async function deposer(demande, patience) {
         return rep.resultat;
       }
     }
-    throw new Error('Pas de réponse après 5 minutes. Regardez l\'onglet Actions du dépôt GitHub.');
+    throw new Error('Pas encore de réponse : le travail continue peut-être sur GitHub. Actualisez dans quelques minutes, ou regardez l\'onglet Actions du dépôt.');
   } finally { S.occupe = false; }
 }
 
@@ -145,6 +146,7 @@ const VUES = {
       [brouillons, 'réponse(s) prête(s) à envoyer', 'prospection'],
       [T.kie.devis.filter(d => d.statut === 'en attente').length, 'devis Kie à accepter ou refuser', 'commandes'],
       [propositions, 'agent(s) proposent des leçons à valider', 'equipe'],
+      [(T.productions || []).filter(p => p.attente).length, 'production(s) attendent votre décision', 'productions'],
       [(T.vitrine ? T.vitrine.jours.filter(j => !j.publie && j.date <= new Date().toISOString().slice(0, 10)).length : 0), 'publication(s) de la vitrine à faire', 'vitrine'],
     ].filter(t => t[0] > 0);
     return `
@@ -201,6 +203,31 @@ const VUES = {
           ${j.publie ? `<div class="chiffres">${champ(j, 'vues', 'Vues')}${champ(j, 'partages', 'Partages')}${champ(j, 'enregistrements', 'Enregistrements')}${champ(j, 'messages', 'Messages reçus')}</div>
             <div class="rang"><button class="btn" data-a="vitrine-stats" data-date="${h(j.date)}">Enregistrer les chiffres</button></div>` : ''}
         </article>`).join('')}</div>`;
+  },
+
+  productions() {
+    const P = S.T.productions || [];
+    const NOMS = { structure: 'Structure (Lina)', storyboard: 'Storyboard (Victor)', prompts: 'Prompts (Théo)', textes: 'Textes (Jade)',
+      devis_images: 'Devis images (Marius)', images: 'Images clés (Kie)', planche: 'Planche', validation: 'Votre validation' };
+    const pastille = st => ({ 'fait': 'ok', 'en cours': 'attente', 'attend Mathis': 'attente', 'erreur': 'danger' }[st] || '');
+    const medias = id => (((S.T.projets || {}).projets || []).find(x => x.id === id) || {}).medias || [];
+    return `
+      <div class="bloc"><h2>Productions</h2>
+        <p class="muted">Ici, les agents travaillent pour de vrai : chaque étape est exécutée par l'agent concerné, l'une après l'autre, jusqu'à ce qu'une décision vous attende (accord d'un devis, validation du storyboard). Max fait avancer les productions à chacun de ses passages ; vous pouvez aussi cliquer « Faire avancer ».</p></div>
+      <div class="carte"><h3>Nouvelle vidéo</h3>
+        <form id="form-production" class="bloc"><label>Titre<input id="prod-titre" maxlength="80" required placeholder="Bougie « Nuit de Cèdre » (vitrine)"></label>
+          <label>Ce que vous voulez<textarea id="prod-demande" maxlength="1500" required placeholder="Reel héros de la vitrine : bougie fictive, ambiance clair-obscur, flamme et fumée fine…"></textarea></label>
+          <div class="rang"><button class="btn primaire" type="submit">Lancer la production</button></div></form></div>
+      ${P.length ? P.slice().reverse().map(p => `<article class="carte ${p.attente ? 'attente' : ''}">
+        <div class="rang espace"><h3>${h(p.titre)}</h3><span class="pastille ${p.statut === 'en cours' ? 'attente' : 'ok'}">${h(p.statut)}</span></div>
+        <div class="rang">${Object.entries(p.etapes).map(([e, st]) => `<span class="pastille ${pastille(st)}">${h(NOMS[e] || e)} : ${h(st)}</span>`).join('')}</div>
+        ${p.attente ? `<p><b>En attente :</b> ${h(p.attente)}</p>` : ''}
+        <div class="rang">
+          ${p.etape === 'devis_images' && p.attente ? `<button class="btn" data-a="aller" data-vue="commandes">Voir le devis</button>` : ''}
+          ${p.etape === 'validation' ? `<button class="btn primaire" data-a="valider-storyboard" data-id="${h(p.id)}">Valider le storyboard</button>` : ''}
+          ${p.statut === 'en cours' ? `<button class="btn" data-a="avancer-production" data-id="${h(p.id)}">Faire avancer</button>` : ''}
+          ${medias(p.id).length ? `<button class="btn" data-a="aller" data-vue="projets">Voir la planche et l'animatique</button>` : ''}
+        </div></article>`).join('') : vide('Aucune production pour l\'instant.')}`;
   },
 
   prospection() {
@@ -537,6 +564,11 @@ $('vue').addEventListener('click', e => {
   if (a === 'refuser-devis') return faire(() => deposer({ action: 'refuser_devis', brief: b.dataset.brief }));
   if (a === 'point-equipe') return faire(async () => { await deposer({ action: 'point_equipe' }, "Max fait le point avec l'équipe… En ligne, comptez une minute."); bandeau("Point d'équipe publié dans le fil.", 'ok'); afficher(); });
   if (a === 'lire-courriels') return faire(async () => { const r = await deposer({ action: 'lire_courriels' }, 'Lecture de la boîte mail…'); bandeau(`${r.lus} nouvel(s) e-mail(s) lu(s), ${r.prospects.length} réponse(s) de prospect.`, 'ok'); afficher(); });
+  if (a === 'avancer-production') return faire(async () => { const r = await deposer({ action: 'avancer_production', id: b.dataset.id }, "Les agents travaillent sur la production… Comptez 2 à 5 minutes."); bandeau(`Étapes faites : ${(r.faites || []).join(', ') || 'aucune'}${r.attente ? ' · en attente : ' + r.attente : ''}`, 'ok'); afficher(); });
+  if (a === 'valider-storyboard') {
+    if (b.dataset.sur !== '1') { b.dataset.sur = '1'; b.textContent = 'Confirmer : storyboard validé'; return; }
+    return faire(async () => { const r = await deposer({ action: 'valider_storyboard', id: b.dataset.id }, 'Validation du storyboard…'); bandeau('Storyboard validé. ' + (r.attente || ''), 'ok'); afficher(); });
+  }
   if (a === 'proposer') return faire(() => deposer({ action: 'proposer_lecons', agent }, 'L\'agent relit ses résultats…'));
   if (a === 'adopter') return faire(async () => { const r = await deposer({ action: 'adopter_lecons', agent }, 'Enregistrement des leçons… En ligne, comptez 30 à 60 secondes.'); bandeau(`${r.adoptees || 0} leçon(s) de ${nomAgent(agent)} adoptée(s) : elles s'appliquent dès sa prochaine tâche.`, 'ok'); afficher(); });
   if (a === 'refuser') return faire(async () => { await deposer({ action: 'refuser_lecons', agent }, 'Refus des leçons… En ligne, comptez 30 à 60 secondes.'); bandeau(`Leçons de ${nomAgent(agent)} refusées.`, 'ok'); afficher(); });
@@ -554,6 +586,10 @@ $('vue').addEventListener('submit', e => {
     try { const r = await deposer({ action: 'discuter', agent: id, echanges: fil }, `${nomAgent(id)} réfléchit…`); fil.push({ de: 'agent', texte: r.texte }); }
     catch (err) { fil.pop(); throw err; }
     afficher();
+  });
+  if (e.target.id === 'form-production') return faire(async () => {
+    const r = await deposer({ action: 'creer_production', titre: zone('prod-titre'), demande: zone('prod-demande') }, "Lina, Victor, Théo et Jade travaillent sur votre vidéo… Comptez 3 à 6 minutes.");
+    bandeau(`Production lancée : étapes faites ${(r.faites || []).join(', ') || 'aucune'}${r.attente ? ' · en attente : ' + r.attente : ''}`, 'ok'); afficher();
   });
   if (e.target.id === 'form-reunion') return faire(async () => {
     const texte = zone('dire-equipe');
