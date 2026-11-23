@@ -1,0 +1,5 @@
+node_modules/
+*.log
+
+# archive générée pour le téléchargement (npm run icons + zip manuel)
+etal-extension.zip

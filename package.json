@@ -1,0 +1,12 @@
+{
+  "name": "etal-studio",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Étal — studio d'annonces Vinted : préparation, score, marge et publication.",
+  "scripts": {
+    "icons": "node scripts/make-icons.mjs",
+    "test": "node --test tests/",
+    "check": "node scripts/check.mjs"
+  }
+}
